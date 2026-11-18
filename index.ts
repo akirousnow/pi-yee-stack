@@ -7,7 +7,7 @@
  * Trigger:
  *   - Ctrl+Alt+W while the editor contains the wish
  *   - /wish [light|standard|heavy] <wish>
- *   - /wish-model to choose and persist the model used for specialization
+ *   - /wish-config to configure the model, default style, and shortcut
  *
  * The generated prompt opens in a floating, editable dialog with Confirm / Cancel.
  */
@@ -29,19 +29,23 @@ import { BorderedLoader, getAgentDir } from "@earendil-works/pi-coding-agent";
 import type {
 	EditorTheme,
 	Focusable,
+	KeyId,
 	KeybindingsManager,
 	TUI,
 } from "@earendil-works/pi-tui";
 import {
 	Editor,
+	getKeybindings,
+	matchesKey,
+	parseKey,
 	truncateToWidth,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
 
-const SHORTCUT = "ctrl+alt+w";
-const DEFAULT_TIER = "standard";
-
 type Tier = "light" | "standard" | "heavy";
+
+const DEFAULT_SHORTCUT = "ctrl+alt+w";
+const DEFAULT_TIER: Tier = "standard";
 
 interface WishModelRef {
 	provider: string;
@@ -50,31 +54,63 @@ interface WishModelRef {
 
 interface WishConfig {
 	model?: WishModelRef | null;
+	tier?: string;
+	shortcut?: string;
 }
 
 const WISH_CONFIG_PATH = join(getAgentDir(), "wish-specializer.json");
 
-function loadWishModel(): WishModelRef | undefined {
-	try {
-		const config = JSON.parse(readFileSync(WISH_CONFIG_PATH, "utf8")) as WishConfig;
-		const model = config?.model;
-		if (model && typeof model.provider === "string" && typeof model.id === "string") {
-			return { provider: model.provider, id: model.id };
-		}
-	} catch {
-		// Missing or malformed config means "follow the active Pi model".
+function isShortcutShapeValid(value: string): boolean {
+	const key = value.trim().toLowerCase();
+	if (!/^(?:(?:ctrl|alt|super|shift)\+)*(?:[a-z0-9]|f(?:[1-9]|1[0-2]))$/.test(key)) {
+		return false;
 	}
-	return undefined;
+	// A bare letter would swallow normal typing. Require a real modifier or F1-F12.
+	return /(?:^|\+)(?:ctrl|alt|super)\+/.test(key) || /(?:^|\+)f(?:[1-9]|1[0-2])$/.test(key);
 }
 
-function saveWishModel(model: WishModelRef | undefined): void {
+function displayShortcut(key: string): string {
+	return key
+		.split("+")
+		.map((part) => (part.length <= 1 ? part.toUpperCase() : part[0]!.toUpperCase() + part.slice(1)))
+		.join("+");
+}
+
+function loadWishConfig(): WishConfig {
+	try {
+		const parsed = JSON.parse(readFileSync(WISH_CONFIG_PATH, "utf8")) as unknown;
+		if (parsed && typeof parsed === "object") return parsed as WishConfig;
+	} catch {
+		// Missing or malformed config means "use defaults".
+	}
+	return {};
+}
+
+function readModelRef(value: WishModelRef | null | undefined): WishModelRef | undefined {
+	if (!value || typeof value !== "object") return undefined;
+	if (typeof value.provider !== "string" || typeof value.id !== "string") return undefined;
+	if (!value.provider || !value.id) return undefined;
+	return { provider: value.provider, id: value.id };
+}
+
+const loadedConfig = loadWishConfig();
+let configuredWishModel = readModelRef(loadedConfig.model);
+let configuredTier: Tier = isTier(loadedConfig.tier ?? "") ? (loadedConfig.tier as Tier) : DEFAULT_TIER;
+let configuredShortcut =
+	typeof loadedConfig.shortcut === "string" && isShortcutShapeValid(loadedConfig.shortcut)
+		? loadedConfig.shortcut.toLowerCase()
+		: DEFAULT_SHORTCUT;
+let warnedConfiguredModelUnavailable = false;
+
+function saveWishSettings(): void {
 	mkdirSync(getAgentDir(), { recursive: true });
-	const config: WishConfig = { model: model ?? null };
+	const config: WishConfig = {
+		model: configuredWishModel ?? null,
+		tier: configuredTier,
+		shortcut: configuredShortcut,
+	};
 	writeFileSync(WISH_CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
-
-let configuredWishModel = loadWishModel();
-let warnedConfiguredModelUnavailable = false;
 
 const TIER_LABEL: Record<Tier, string> = {
 	light: "轻量",
@@ -282,6 +318,29 @@ function editorTheme(theme: Theme): EditorTheme {
 	};
 }
 
+function panelRow(theme: Theme, width: number, content: string): string {
+	const padding = " ".repeat(Math.max(0, width - visibleWidth(content)));
+	return theme.bg("customMessageBg", content + padding);
+}
+
+function findShortcutConflict(key: string): string | undefined {
+	try {
+		const resolved = getKeybindings().getResolvedBindings() as Record<
+			string,
+			string | string[] | undefined
+		>;
+		for (const [action, bindings] of Object.entries(resolved)) {
+			const keys = Array.isArray(bindings) ? bindings : bindings ? [bindings] : [];
+			if (keys.some((binding) => binding.toLowerCase() === key.toLowerCase())) {
+				return action;
+			}
+		}
+	} catch {
+		// Keybindings are only available in interactive mode.
+	}
+	return undefined;
+}
+
 /**
  * Floating editable result dialog.
  *
@@ -364,10 +423,7 @@ class WishPromptDialog implements Focusable {
 
 		// Fill every line to the full width with a panel background so the
 		// floating card stays legible over transcript text.
-		const row = (content: string) => {
-			const padding = " ".repeat(Math.max(0, safeWidth - visibleWidth(content)));
-			return th.bg("customMessageBg", content + padding);
-		};
+		const row = (content: string) => panelRow(th, safeWidth, content);
 
 		lines.push(
 			row(
@@ -503,7 +559,7 @@ async function runWishSpecializer(
 	const original = rawWish.replace(/\r\n/g, "\n").trim();
 	if (!original) {
 		ctx.ui.notify(
-			"输入框为空：先写下愿望再按 Ctrl+Alt+W，或使用 /wish <愿望>",
+			`输入框为空：先写下愿望再按 ${displayShortcut(configuredShortcut)}，或使用 /wish <愿望>`,
 			"warning",
 		);
 		return;
@@ -592,7 +648,7 @@ async function runWishSpecializer(
 function parseCommandArgs(args: string): { tier: Tier; wish: string } {
 	const trimmed = args.trim();
 	if (!trimmed) {
-		return { tier: DEFAULT_TIER, wish: "" };
+		return { tier: configuredTier, wish: "" };
 	}
 
 	const match = trimmed.match(/^(\S+)(?:\s+([\s\S]*))?$/);
@@ -603,19 +659,19 @@ function parseCommandArgs(args: string): { tier: Tier; wish: string } {
 		return { tier: first, wish: rest };
 	}
 
-	return { tier: DEFAULT_TIER, wish: trimmed };
+	return { tier: configuredTier, wish: trimmed };
 }
 
-async function selectWishModel(ctx: ExtensionContext): Promise<void> {
+async function chooseWishModel(ctx: ExtensionContext): Promise<boolean> {
 	if (ctx.mode !== "tui") {
-		ctx.ui.notify("/wish-model 需要 TUI 交互模式", "error");
-		return;
+		ctx.ui.notify("/wish-config 需要 TUI 交互模式", "error");
+		return false;
 	}
 
 	const available = ctx.modelRegistry.getAvailable();
 	if (available.length === 0) {
 		ctx.ui.notify("没有可用模型，请先用 /login 或 /model 配置模型", "error");
-		return;
+		return false;
 	}
 
 	const sorted = [...available].sort((a, b) =>
@@ -650,43 +706,203 @@ async function selectWishModel(ctx: ExtensionContext): Promise<void> {
 		: "跟随当前 Pi 模型";
 	const choice = await ctx.ui.select(`选择许愿特化器使用的模型\n当前：${current}`, labels);
 
-	if (!choice) {
-		ctx.ui.notify("已取消模型选择", "info");
-		return;
-	}
+	if (!choice) return false;
 
 	const ref = choices.get(choice);
-	if (ref === undefined) return;
+	if (ref === undefined) return false;
 
+	const previous = configuredWishModel;
+	configuredWishModel = ref ?? undefined;
 	try {
-		if (ref === null) {
-			saveWishModel(undefined);
-			configuredWishModel = undefined;
-			warnedConfiguredModelUnavailable = false;
-			ctx.ui.notify("许愿模型：跟随当前 Pi 模型", "info");
-			return;
-		}
+		saveWishSettings();
+	} catch (error) {
+		configuredWishModel = previous;
+		const message = error instanceof Error ? error.message : String(error);
+		ctx.ui.notify(`保存许愿设置失败：${message}`, "error");
+		return false;
+	}
 
-		saveWishModel(ref);
-		configuredWishModel = ref;
-		warnedConfiguredModelUnavailable = false;
+	warnedConfiguredModelUnavailable = false;
+	if (ref === null) {
+		ctx.ui.notify("许愿模型：跟随当前 Pi 模型", "info");
+	} else {
 		const picked = sorted.find(
 			(model) => model.provider === ref.provider && model.id === ref.id,
 		);
 		const pickedLabel = picked?.name && picked.name !== picked.id ? picked.name : ref.id;
-		ctx.ui.notify(`许愿模型已固定：${pickedLabel} (${ref.provider}/${ref.id})，长期生效`, "info");
+		ctx.ui.notify(`许愿模型已固定：${pickedLabel} (${ref.provider}/${ref.id})`, "info");
+	}
+	return true;
+}
+
+async function chooseWishTier(ctx: ExtensionContext): Promise<boolean> {
+	const tiers: Tier[] = ["light", "standard", "heavy"];
+	const labels = tiers.map(
+		(tier) => `${configuredTier === tier ? "✓ " : ""}${TIER_LABEL[tier]} (${tier})`,
+	);
+	const choice = await ctx.ui.select("默认 wish 风格", labels);
+	if (!choice) return false;
+
+	const index = labels.indexOf(choice);
+	if (index < 0) return false;
+	const next = tiers[index]!;
+	if (next === configuredTier) return false;
+
+	const previous = configuredTier;
+	configuredTier = next;
+	try {
+		saveWishSettings();
 	} catch (error) {
+		configuredTier = previous;
 		const message = error instanceof Error ? error.message : String(error);
-		ctx.ui.notify(`保存许愿模型失败：${message}`, "error");
+		ctx.ui.notify(`保存许愿设置失败：${message}`, "error");
+		return false;
+	}
+
+	ctx.ui.notify(`默认 wish 风格：${TIER_LABEL[next]} (${next})`, "info");
+	return true;
+}
+
+async function captureShortcut(
+	ctx: ExtensionContext,
+	current: string,
+): Promise<string | null> {
+	return ctx.ui.custom<string | null>(
+		(tui, theme, _keybindings, done) => {
+			let warning: string | undefined;
+
+			return {
+				render(width: number): string[] {
+					const safeWidth = Math.max(20, width);
+					const paddingX = safeWidth >= 40 ? 3 : 1;
+					const pad = " ".repeat(paddingX);
+					const lines = [
+						panelRow(
+							theme,
+							safeWidth,
+							`${pad}${theme.fg("accent", theme.bold("设置 wish 快捷键"))}`,
+						),
+						panelRow(theme, safeWidth, ""),
+						panelRow(
+							theme,
+							safeWidth,
+							`${pad}${theme.fg("text", `当前：${displayShortcut(current)}`)}`,
+						),
+						panelRow(
+							theme,
+							safeWidth,
+							`${pad}${theme.fg("dim", "按下新的快捷键，Esc 取消")}`,
+						),
+						panelRow(
+							theme,
+							safeWidth,
+							`${pad}${theme.fg("dim", "支持 Ctrl/Alt/Super+字母/数字，或 F1-F12")}`,
+						),
+						panelRow(theme, safeWidth, ""),
+					];
+					lines.push(
+						panelRow(
+							theme,
+							safeWidth,
+							`${pad}${warning ? theme.fg("warning", warning) : theme.fg("dim", "建议使用 Ctrl/Alt 组合键，避免影响正常输入")}`,
+						),
+					);
+					return lines;
+				},
+				handleInput(data: string): void {
+					if (matchesKey(data, "escape")) {
+						done(null);
+						return;
+					}
+
+					const parsed = parseKey(data);
+					if (!parsed) {
+						warning = "无法识别这个按键，请重试";
+						tui.requestRender();
+						return;
+					}
+
+					const key = parsed.toLowerCase();
+					if (!isShortcutShapeValid(key)) {
+						warning = "需要 Ctrl/Alt/Super+字母/数字，或 F1-F12";
+						tui.requestRender();
+						return;
+					}
+
+					const conflict = findShortcutConflict(key);
+					if (conflict) {
+						warning = `与 Pi 内置快捷键冲突：${conflict}`;
+						tui.requestRender();
+						return;
+					}
+
+					done(key);
+				},
+				invalidate(): void {},
+			};
+		},
+		{ overlay: true, overlayOptions: popupOptions() },
+	);
+}
+
+async function chooseWishShortcut(ctx: ExtensionContext): Promise<boolean> {
+	const next = await captureShortcut(ctx, configuredShortcut);
+	if (!next || next === configuredShortcut) return false;
+
+	const previous = configuredShortcut;
+	configuredShortcut = next;
+	try {
+		saveWishSettings();
+	} catch (error) {
+		configuredShortcut = previous;
+		const message = error instanceof Error ? error.message : String(error);
+		ctx.ui.notify(`保存许愿设置失败：${message}`, "error");
+		return false;
+	}
+
+	ctx.ui.notify(`wish 快捷键已设为 ${displayShortcut(next)}`, "info");
+	return true;
+}
+
+async function runWishConfig(ctx: ExtensionContext): Promise<{ reload: boolean }> {
+	if (ctx.mode !== "tui") {
+		ctx.ui.notify("/wish-config 需要 TUI 交互模式", "error");
+		return { reload: false };
+	}
+
+	while (true) {
+		const modelLabel = configuredWishModel
+			? `${configuredWishModel.provider}/${configuredWishModel.id}`
+			: "跟随当前 Pi 模型";
+		const choice = await ctx.ui.select("许愿特化器设置", [
+			`模型：${modelLabel}`,
+			`默认风格：${TIER_LABEL[configuredTier]} (${configuredTier})`,
+			`快捷键：${displayShortcut(configuredShortcut)}`,
+			"完成",
+		]);
+
+		if (!choice || choice === "完成") return { reload: false };
+		if (choice.startsWith("模型：")) {
+			await chooseWishModel(ctx);
+			continue;
+		}
+		if (choice.startsWith("默认风格：")) {
+			await chooseWishTier(ctx);
+			continue;
+		}
+		if (choice.startsWith("快捷键：")) {
+			const changed = await chooseWishShortcut(ctx);
+			if (changed) return { reload: true };
+		}
 	}
 }
 
 export default function wishSpecializer(pi: ExtensionAPI) {
-	pi.registerShortcut(SHORTCUT, {
-		description: "许愿特化器：优化输入框里的 prompt（不改写原话）",
+	pi.registerShortcut(configuredShortcut as KeyId, {
+		description: `许愿特化器：优化输入框里的 prompt（${displayShortcut(configuredShortcut)}）`,
 		handler: async (ctx) => {
 			const wish = ctx.ui.getEditorText();
-			await runWishSpecializer(ctx, wish, DEFAULT_TIER);
+			await runWishSpecializer(ctx, wish, configuredTier);
 		},
 	});
 
@@ -710,7 +926,7 @@ export default function wishSpecializer(pi: ExtensionAPI) {
 
 			if (!wish.trim()) {
 				ctx.ui.notify(
-					"用法：/wish [light|standard|heavy] <愿望>；或先在输入框写好愿望，再按 Ctrl+Alt+W",
+					`用法：/wish [light|standard|heavy] <愿望>；或先在输入框写好愿望，再按 ${displayShortcut(configuredShortcut)}`,
 					"warning",
 				);
 				return;
@@ -720,10 +936,19 @@ export default function wishSpecializer(pi: ExtensionAPI) {
 		},
 	});
 
-	pi.registerCommand("wish-model", {
-		description: "选择并长期保存许愿特化器使用的模型（/wish-model）",
+	pi.registerCommand("wish-config", {
+		description: "配置许愿特化器的模型、默认风格和快捷键",
 		handler: async (_args, ctx) => {
-			await selectWishModel(ctx);
+			const result = await runWishConfig(ctx);
+			if (!result.reload) return;
+
+			if (!ctx.isIdle()) {
+				ctx.ui.notify("快捷键已保存；当前回合结束后执行 /reload 生效", "warning");
+				return;
+			}
+
+			ctx.ui.notify("快捷键已保存，正在重载扩展…", "info");
+			await ctx.reload();
 		},
 	});
 }

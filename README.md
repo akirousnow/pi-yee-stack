@@ -6,14 +6,14 @@
 - 支持**快捷键**和 **slash 命令**触发；
 - 生成后弹出可编辑的小浮窗，支持 **确认** / **取消**；
 - 确认后写回 Pi 输入框，取消则输入框原样保留；
-- `/wish-model` 可以从 Pi 当前可用模型里选一个，长期固定给许愿特化器使用。
+- `/wish-config` 可以配置模型、默认 wish 风格和触发快捷键，并长期保存。
 
 ## 安装
 
 从 GitHub 安装：
 
 ```bash
-pi install git:github.com/akirousnow/pi-wish-specializer@v0.1.0
+pi install git:github.com/akirousnow/pi-wish-specializer@v0.2.0
 ```
 
 然后在 Pi 里重新加载：
@@ -22,7 +22,7 @@ pi install git:github.com/akirousnow/pi-wish-specializer@v0.1.0
 /reload
 ```
 
-用 `/hotkeys` 可以在 **Extensions** 一栏看到注册的快捷键。
+用 `/hotkeys` 可以在 **Extensions** 一栏看到当前注册的快捷键。
 
 本地开发/试用：
 
@@ -42,7 +42,7 @@ pi install ./pi-wish-specializer
    ```text
    画一只赛博朋克风格的猫，用于网站首屏
    ```
-2. 按 `Ctrl+Alt+W`。
+2. 按当前配置的快捷键，默认是 `Ctrl+Alt+W`。
 3. 等待生成后，在浮窗里编辑结果：
    - `Enter`：确认，写回输入框
    - `Esc`：取消，输入框保持原样
@@ -69,43 +69,81 @@ pi install ./pi-wish-specializer
 
 命令执行后输入框会被清空；确认结果时写回输入框，取消则保持为空。
 
-### 选择许愿模型
+## /wish-config
 
 ```text
-/wish-model
+/wish-config
 ```
 
-回车后会列出 Pi 当前可用的模型（与 `/model` 使用同一套模型来源）：
+打开设置菜单：
 
-- 第一项 `↺ 跟随当前 Pi 模型（默认）`：不固定，始终使用 Pi 当前模型；
-- 其余模型会显示 `provider/model`、模型名，并用 `[✓ 固定]` / `[当前]` 标记；
-- 选中后立即写入配置文件，**长期生效**，并且不会修改 Pi 自己的当前模型。
+```text
+许愿特化器设置
 
-配置文件位置：
+→ 模型：跟随当前 Pi 模型
+  默认风格：标准 (standard)
+  快捷键：Ctrl+Alt+W
+  完成
+```
+
+### 模型
+
+从 Pi 当前可用模型里选择一个，来源与 `/model` 一致：
+
+- `↺ 跟随当前 Pi 模型（默认）`：始终使用 Pi 当前模型；
+- 其他模型会显示 `provider/model`、模型名，以及 `[✓ 固定]` / `[当前]` 标记；
+- 固定后不会修改 Pi 自己的当前模型。
+
+如果固定模型之后不可用（登录失效、模型被移除等），许愿特化器会提示一次，并临时退回当前 Pi 模型。
+
+### 默认风格
+
+配置 `light` / `standard` / `heavy` 三档，作用于：
+
+- 快捷键触发时的默认档位；
+- `/wish <愿望>` 未显式指定档位时的默认档位。
+
+`/wish light ...`、`/wish heavy ...` 仍然可以单次覆盖。
+
+### 快捷键
+
+选择“快捷键”后，按下新的组合键即可：
+
+- 支持 `Ctrl` / `Alt` / `Super` + 字母或数字；
+- 支持 `F1`–`F12`；
+- 必须带修饰键或使用功能键，避免吞掉正常输入；
+- 与 Pi 内置快捷键冲突时会拒绝并提示；
+- 保存后如果 Pi 空闲，会自动执行一次 reload；如果正在生成回复，则在当前回合结束后手动执行 `/reload` 生效。
+
+## 配置文件
+
+位置：
 
 ```text
 ~/.pi/agent/wish-specializer.json
 ```
 
-内容示例：
+示例：
 
 ```json
 {
   "model": {
     "provider": "magpie",
-    "id": "deepseek-v4.1-flash"
-  }
+    "id": "auto/deepseek-v4.1-flash"
+  },
+  "tier": "standard",
+  "shortcut": "ctrl+alt+w"
 }
 ```
 
-选择“跟随当前 Pi 模型”后，`model` 会写成 `null`。如果固定模型之后不可用（例如登录失效或模型被移除），许愿特化器会提示一次，并临时退回当前 Pi 模型。
+`model` 为 `null` 表示跟随当前 Pi 模型。
 
 ## 档位
 
 | 档位 | 行为 | 预算 |
 |---|---|---|
 | `light` | 只给 2–3 条最高杠杆的方向 | 约 700 字符 |
-| `standard` | 4–6 条关键方向 + 一行验收口径（默认） | 约 1200 字符 |
+| `standard` | 4–6 条关键方向 + 一行验收口径 | 约 1200 字符 |
 | `heavy` | 把最有决定性的少数方向写透，可带一小段分阶段建议 + 验收口径 | 约 2000 字符 |
 
 档位控制“补多少”，不会替用户做决定。
@@ -139,15 +177,17 @@ pi install ./pi-wish-specializer
 
 ## 实现说明
 
-- 默认使用当前 Pi 会话的 `ctx.model`；如果通过 `/wish-model` 固定了模型，则优先使用固定模型。
+- 配置保存在 agent 目录的 `wish-specializer.json`，通过 `/wish-config` 修改。
+- 默认使用当前 Pi 会话的 `ctx.model`；固定模型后优先使用固定模型。
 - 调用 `ctx.modelRegistry.complete()`，模型来源与 Pi 自带的 `/model` 一致。
 - 生成期间显示可取消的 loader；`Esc` / `Ctrl+C` 会中止请求。
 - 结果浮窗使用 `ctx.ui.custom(..., { overlay: true })`，内含 Pi 的 `Editor` 组件，保留光标、IME、换行、滚动和补全行为。
-- 浮窗每行都铺满主题 `customMessageBg` 背景，避免浮在聊天记录上时看不清。
+- 快捷键通过 `pi.registerShortcut()` 注册；切换快捷键后自动 reload 使新绑定生效。
+- 浮窗每行都铺满主题 `customMessageBg` 背景，并使用水平 padding 和上下留白。
 - 如果模型出错、被取消、或返回空内容，不会覆盖输入框。
 
 ## 注意事项
 
-- 快捷键需要终端能把 `Ctrl+Alt+W` 传进来；如果被终端占用，直接用 `/wish <愿望>` 即可。
-- 优化调用使用当前模型或 `/wish-model` 固定的模型，可能产生一次额外的模型请求。
+- 如果快捷键被终端占用，可以直接使用 `/wish <愿望>`，或在 `/wish-config` 里换一个。
+- 优化调用使用当前模型或固定模型，可能产生一次额外的模型请求。
 - 扩展不会修改 Pi 本身，也不会修改 Pi 的当前模型。

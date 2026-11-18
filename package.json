@@ -1,6 +1,6 @@
 {
   "name": "pi-wish-specializer",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Wish Specializer for Pi TUI: turn a one-line wish into directional requirements, edit the result in a floating dialog, and persist the model used for specialization.",
   "type": "module",
   "license": "MIT",
