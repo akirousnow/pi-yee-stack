@@ -356,7 +356,9 @@ class WishPromptDialog implements Focusable {
 
 	render(width: number): string[] {
 		const safeWidth = Math.max(20, width);
-		const innerWidth = Math.max(1, safeWidth - 2);
+		const paddingX = safeWidth >= 40 ? 3 : 1;
+		const innerWidth = Math.max(1, safeWidth - paddingX * 2);
+		const pad = " ".repeat(paddingX);
 		const th = this.theme;
 		const lines: string[] = [];
 
@@ -370,31 +372,34 @@ class WishPromptDialog implements Focusable {
 		lines.push(
 			row(
 				truncateToWidth(
-					` ${th.fg("accent", th.bold("许愿特化器"))}${th.fg("dim", `  ${this.meta}`)}`,
+					`${pad}${th.fg("accent", th.bold("许愿特化器"))}${th.fg("dim", `  ${this.meta}`)}`,
 					safeWidth,
 				),
 			),
 		);
+		lines.push(row(""));
+
 		for (const line of this.editor.render(innerWidth)) {
-			lines.push(row(` ${line} `));
+			lines.push(row(`${pad}${line}${pad}`));
 		}
+		lines.push(row(""));
 
 		lines.push(
 			row(
 				truncateToWidth(
-					` ${th.fg("success", th.bold("[ 确认 · Enter ]"))}  ${th.fg("warning", th.bold("[ 取消 · Esc ]"))}`,
+					`${pad}${th.fg("success", th.bold("[ 确认 · Enter ]"))}  ${th.fg("warning", th.bold("[ 取消 · Esc ]"))}`,
 					safeWidth,
 				),
 			),
 		);
 
 		if (this.warning) {
-			lines.push(row(truncateToWidth(` ${th.fg("warning", this.warning)}`, safeWidth)));
+			lines.push(row(truncateToWidth(`${pad}${th.fg("warning", this.warning)}`, safeWidth)));
 		} else {
 			lines.push(
 				row(
 					truncateToWidth(
-						` ${th.fg("dim", "PgUp/PgDn 滚动 · Shift+Enter 换行 · Tab 补全 · 确认后写回输入框")}`,
+						`${pad}${th.fg("dim", "PgUp/PgDn 滚动 · Shift+Enter 换行 · Tab 补全 · 确认后写回输入框")}`,
 						safeWidth,
 					),
 				),
