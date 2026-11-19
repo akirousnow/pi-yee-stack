@@ -1,33 +1,43 @@
 {
-  "name": "pi-wish-specializer",
-  "version": "0.2.0",
-  "description": "Wish Specializer for Pi TUI: turn a one-line wish into directional requirements, edit the result in a floating dialog, and persist the model used for specialization.",
+  "name": "pi-yee-stack",
+  "version": "0.3.0",
+  "description": "A small stack of extensions for Pi: Wish Specializer (/wish), read-only Q&A Ask mode (/ask), and a tabbed /yee-config page.",
   "type": "module",
   "license": "MIT",
   "author": "akirousnow",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/akirousnow/pi-wish-specializer.git"
+    "url": "git+https://github.com/akirousnow/pi-yee-stack.git"
   },
   "bugs": {
-    "url": "https://github.com/akirousnow/pi-wish-specializer/issues"
+    "url": "https://github.com/akirousnow/pi-yee-stack/issues"
   },
-  "homepage": "https://github.com/akirousnow/pi-wish-specializer#readme",
+  "homepage": "https://github.com/akirousnow/pi-yee-stack#readme",
   "keywords": [
     "pi-package",
     "pi-extension",
+    "pi-coding-agent",
     "prompt-engineering",
+    "ask-mode",
     "tui",
     "coding-agent"
   ],
   "files": [
-    "index.ts",
+    "extensions/",
+    "!extensions/**/*.test.ts",
+    "!extensions/**/test-support/",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:unit": "tsx extensions/yee-stack/config.test.ts && tsx extensions/yee-stack/shortcut.test.ts && tsx extensions/yee-stack/legacy.test.ts && tsx extensions/yee-stack/features/wish/prompt.test.ts && tsx extensions/yee-stack/features/ask/policy.test.ts && tsx extensions/yee-stack/features/ask/mode.test.ts && tsx extensions/yee-stack/ui/config-page.test.ts",
+    "test": "npm run typecheck && npm run test:unit"
+  },
   "pi": {
     "extensions": [
-      "./index.ts"
+      "./extensions/yee-stack/index.ts"
     ]
   },
   "peerDependencies": {
@@ -45,5 +55,16 @@
     "@earendil-works/pi-tui": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "^1.5.2",
+    "@earendil-works/pi-coding-agent": "^1.5.2",
+    "@earendil-works/pi-tui": "^1.5.2",
+    "@types/node": "^25.7.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22.19.0"
   }
 }
