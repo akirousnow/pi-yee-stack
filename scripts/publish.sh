@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# Publish every Yee Stack package to npm, in dependency order.
+# Publish the two Yee Stack host packages to npm.
+#
+# Only `pi-yee-stack` and `yee-stack-dsh` are public. The four shared packages
+# (`yee-stack-core` / `-wish` / `-ask` / `-browser`) are `private` and bundled
+# into each host by `scripts/build-host.mjs`, so there is no dependency order
+# left to respect — and nothing to sync between versions.
 #
 #   bash scripts/publish.sh 123456   # with a fresh OTP from your authenticator
 #   bash scripts/publish.sh          # prompts for the OTP; Enter alone = no OTP
@@ -34,20 +39,12 @@ publish_args() {
 
 dir_of() {
   case "$1" in
-    yee-stack-core)    echo packages/core ;;
-    yee-stack-wish)    echo packages/features/wish ;;
-    yee-stack-ask)     echo packages/features/ask ;;
-    yee-stack-browser) echo packages/features/browser ;;
-    yee-stack-dsh)     echo packages/dsh ;;
-    pi-yee-stack)      echo packages/pi ;;
+    yee-stack-dsh) echo packages/dsh ;;
+    pi-yee-stack)  echo packages/pi ;;
   esac
 }
 
 PACKAGES=(
-  yee-stack-core
-  yee-stack-wish
-  yee-stack-ask
-  yee-stack-browser
   yee-stack-dsh
   pi-yee-stack
 )
@@ -55,6 +52,10 @@ PACKAGES=(
 for pkg in "${PACKAGES[@]}"; do
   dir="$(dir_of "$pkg")"
   version="$(node -p "require('./$dir/package.json').version")"
+
+  # A host publishes its bundle, never the source that imports the private
+  # packages: build it right before every publish.
+  node scripts/build-host.mjs "$dir" || exit 1
 
   if npm view "$pkg@$version" version >/dev/null 2>&1; then
     printf '%-20s %-8s already published, skipped\n' "$pkg" "$version"
@@ -77,4 +78,4 @@ for pkg in "${PACKAGES[@]}"; do
 done
 
 echo
-echo "All packages are on npm."
+echo "Both host packages are on npm."

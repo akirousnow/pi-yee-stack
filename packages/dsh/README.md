@@ -4,19 +4,22 @@
 
 | 功能 | 入口 | 一句话 |
 |---|---|---|
-| **Wish** 许愿特化器 | `/wish [light\|standard\|heavy] <愿望>` | 一次私有补全，把一句话愿望补成“方向性要求”，结果作为命令文本返回 |
-| **Ask** 只读问答 | `/ask`、`/ask <问题>`、`/ask on\|off\|status` | 只读工具集 + 单调 guard + 提示词分区，三层保证不改文件、不跑命令 |
-| **Browser** 浏览器操控 | `/browser`、`browser_*`、`$t3` | 自己拉起 chrome-devtools-mcp，选定 tab 后看快照、点击、填表 |
-| **设置** | `/yee-config` | 打印当前解析后的设置 |
+| **Yee Stack 面板** | 侧栏「Yee Stack」 | 三件事都在一个页面里：许愿特化、Ask 开关、浏览器连接，设置也在这里改（即时生效） |
+| **Wish** 许愿特化器 | `/wish [light\|standard\|heavy] <愿望>`、面板的「特化」 | 一次私有补全，把一句话愿望补成“方向性要求” |
+| **Ask** 只读问答 | `/ask`、`/ask <问题>`、`/ask on\|off\|status`、面板的开关 | 只读工具集 + 单调 guard + 提示词分区，三层保证不改文件、不跑命令 |
+| **Browser** 浏览器操控 | `/browser`、`browser_*`、`$t3`、面板的连接/tab 列表 | 自己拉起 chrome-devtools-mcp，选定 tab 后看快照、点击、填表 |
+| **设置** | `/yee-config`、面板的「高级」 | 打印或编辑当前设置 |
 
-与 Pi 版共享 `yee-stack-core`、`@yee-stack/{wish,ask,browser}`：提示词、工具策略、`$tN` 解析、快照 diff、chrome-devtools-mcp 连接规划都是同一份代码。
+Pi 版是**命令**（TUI 浮窗 + 斜杠命令）；dsh 版除了命令，还给 Web 一个**真正的界面**：一个 `main` 面板 + 侧栏入口，所有状态从 Host 读、所有动作走 Remote。
+
+与 Pi 版共享 `yee-stack-core`、`yee-stack-{wish,ask,browser}`（仓库内 `private` 包）：提示词、工具策略、`$tN` 解析、快照 diff、chrome-devtools-mcp 连接规划都是同一份代码，**发布时由 `scripts/build-host.mjs` 内联进 `lib/index.js`**，所以本包对外只依赖 `chrome-devtools-mcp` 和宿主提供的 `@deepseek-ai/*`。
 
 ## 安装
 
-从 npm 安装（`0.5.0`）：
+从 npm 安装（`0.7.0`）：
 
 ```bash
-dsh plugin --profile web add yee-stack-dsh
+dsh plugin --profile web add yee-stack-dsh@0.7.0
 dsh --profile web --dump-config | grep -A 2 'yee-stack'
 dsh web
 ```
@@ -24,9 +27,11 @@ dsh web
 本地开发时从 checkout 安装（`pnpm link` 整个目录，先构建）：
 
 ```bash
-npm install && npm run build
+npm install && npm run build        # tsc → lib/*.d.ts；esbuild → lib/index.js 与 client.js
 dsh plugin --profile web add ./packages/dsh
 ```
+
+> 从 checkout 链接安装时，`@deepseek-ai/*` 由 dsh 运行时解析；`chrome-devtools-mcp` 需要在 `packages/dsh` 自己的 `node_modules` 里能找到（仓库根 `npm install` 已经装好）。
 
 安装后多出一层：
 
@@ -36,9 +41,32 @@ dsh plugin --profile web add ./packages/dsh
   name: 'yee-stack-dsh'
 ```
 
+## 面板
+
+侧栏点「Yee Stack」进面板，面板分四块：
+
+| 块 | 读什么 | 能做什么 |
+|---|---|---|
+| Wish | 档位、输出上限、当前会话的模型路由 | 写愿望 → 「特化」→ 结果**写进输入框**（不直接发） |
+| Ask | 当前会话是否开启、放行/屏蔽的工具、配置里的额外放行 | 开关 Ask；改额外放行；展开看注入的提示词 |
+| Browser | 连接状态、tab 列表、当前 tab、MCP 服务状态 | 连接 / 启动 Chrome / 断开 / 选 tab / 重启 MCP |
+| 高级 | 全部设置 | 改档位、输出上限、连接方式、通道、无头、地址、Chrome 路径、三个开关 |
+
+面板的每个值都来自 Host 的 `yeeStackPanel` Remote 命名空间（`snapshot` / `wish` / `ask` / `browser` / `restartMcp`），设置写入走 `settings.mutate` 落到 profile 的 `cordis.patch.yml`。
+
+**为什么设置能即时生效**：`config` 的每个字段都标了 `.volatile()`，写入只更新运行中的引用并触发 `loader/volatile-update`，不会重载插件——所以改设置不会断浏览器连接、也不会清掉任何会话的 Ask 模式。
+
+### 浏览器那一半怎么构建
+
+`./client` 是手写的 lazy-CJS 工厂（`window.__ModuleLoader__.load({ id, factory(require) })`），由 `scripts/build-client.mjs` 用 esbuild 打包成这个形状：
+
+- 入口是 `src/client/index.ts`，`react` / `react/jsx-runtime` 走 Web 的模块表（`dsh.client.external`），其余全部内联；
+- `dsh.client.inject` 声明它对 layout / sidebar / conversation / settings / remotes / locale 的边；
+- 构建产物是仓库根目录之外的 `packages/dsh/client.js`（跟着 `npm run build` 一起生成）。
+
 ## 配置
 
-改 profile 自己的 `cordis.patch.yml`（或 home 级 `$DSH_HOME/cordis.patch.yml`），**整块替换** `config`：
+改面板的「高级」块最省事（即时生效）。也可以用 profile 自己的 `cordis.patch.yml`（或 home 级 `$DSH_HOME/cordis.patch.yml`），**整块替换** `config`：
 
 ```yaml
 - id: yee-stack
@@ -62,7 +90,7 @@ dsh plugin --profile web add ./packages/dsh
       listenOnStartup: false
 ```
 
-改完 `/reload`（HMR）或重启 dsh。`/yee-config` 会打印解析后的值。
+用 patch 改完 `/reload`（HMR）或重启 dsh；用面板改则即时生效。`/yee-config` 会打印解析后的值。
 
 ## Wish
 
@@ -115,18 +143,21 @@ dsh plugin --profile web add ./packages/dsh
 
 | | Pi | DeepSeek Harness |
 |---|---|---|
-| Wish 结果 | 浮窗里改完写回输入框 | 作为命令文本返回，自己复制 |
-| 快捷键 | `Ctrl+Alt+W` / `Ctrl+Alt+A` | 无（宿主命令面板） |
+| 形态 | TUI 浮窗 + 斜杠命令 | **Web 面板** + 斜杠命令 |
+| Wish 结果 | 浮窗里改完写回输入框 | 面板写进输入框；命令则作为文本返回，自己复制 |
+| 快捷键 | `Ctrl+Alt+W` / `Ctrl+Alt+A` | 无（侧栏入口） |
 | `$tN` 补全 | 输入框里 `$` 补全 | 无补全，直接写 `$t3` |
-| 设置页 | 多标签 TUI 页 | `/yee-config` 打印 + patch 文件 |
+| 设置 | 多标签 TUI 页 | 面板「高级」块（即时生效）+ `/yee-config` |
 | 只读工具名 | `read`/`grep`/`find`/`ls` | `read`/`read_image`/`glob`/`grep` |
 
 ## 开发
 
 ```bash
 node scripts/link-dsh.mjs            # 类型检查用：软链本机 dsh 的 @deepseek-ai/*
-npm run build -w yee-stack-dsh
-npm run test -w yee-stack-dsh       # ask / wish / browser / config
+npm run build -w yee-stack-dsh      # tsc（类型）+ esbuild（lib/index.js）+ esbuild（client.js）
+npm run build:host -w yee-stack-dsh     # 只重建 lib/index.js
+npm run build:client -w yee-stack-dsh   # 只重建 client.js
+npm run test -w yee-stack-dsh       # ask / wish / browser / config / panel
 ```
 
 验证一个 checkout 不装进 profile 也能组合：

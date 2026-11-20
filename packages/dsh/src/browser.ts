@@ -35,7 +35,8 @@ import {
 	tabRef,
 	formatTabList,
 } from "yee-stack-browser";
-import { type BrowserOptions, toBrowserConfig } from "./config.ts";
+import type { PanelBrowser, PanelBrowserState, PanelTab } from "./client/state.ts";
+import { type BrowserOptions, type ResolvedConfig, toBrowserConfig } from "./config.ts";
 import { McpStdioClient, serverBin } from "./mcp.ts";
 import { createBrowserTools, READ_ONLY_BROWSER_TOOLS } from "./tools.ts";
 
@@ -48,7 +49,28 @@ export interface BrowserRuntime {
 	connect(overrides?: Partial<BrowserOptions>): Promise<void>;
 	disconnect(): Promise<void>;
 	status(): string;
+	/** Structured state for the Web panel. */
+	snapshot(): PanelBrowser;
+	/** Make one tab current (the panel's "use"). */
+	use(pageId: number): Promise<void>;
+	/** The `browser_*` tools registered for this connection. */
+	toolNames(): string[];
+	/** Tell the panel that the connection state moved. */
+	notify(): void;
 }
+
+/**
+ * @param readConfig - reads the current config; the browser settings are live
+ *   references, so a panel write reaches the next connect without a reload.
+ * @param onStateChange - called after every state transition (connect, fail,
+ *   disconnect, tab refresh) so a UI can re-read {@link BrowserRuntime.snapshot}.
+ */
+export async function registerBrowser(
+	ctx: Context,
+	readConfig: () => ResolvedConfig,
+	onStateChange: () => void = () => {},
+): Promise<BrowserRuntime> {
+	const options: BrowserOptions = readConfig().browser;
 
 function message(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -59,15 +81,14 @@ function dshHome(): string {
 	return process.env.DSH_HOME || join(homedir(), ".dsh");
 }
 
-export async function registerBrowser(ctx: Context, options: BrowserOptions): Promise<BrowserRuntime> {
-	let state: State = "idle";
-	let error: string | undefined;
-	let client: McpStdioClient | undefined;
-	let remote = false;
-	let pages: PageInfo[] = [];
-	let current: number | undefined;
-	const roots = new Set<string>();
-	const snapshots = new SnapshotCache();
+let state: State = "idle";
+let error: string | undefined;
+let client: McpStdioClient | undefined;
+let remote = false;
+let pages: PageInfo[] = [];
+let current: number | undefined;
+const roots = new Set<string>();
+const snapshots = new SnapshotCache();
 
 	const ensureRoot = async (dir: string): Promise<void> => {
 		if (!dir || roots.has(dir)) return;
@@ -85,14 +106,18 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 		try {
 			const result = await client.callTool("list_pages", {}, { timeoutMs: 15_000 });
 			const parsed = parsePages(result);
-			if (parsed) setPages(parsed);
+			if (parsed) {
+				const before = pages.length;
+				setPages(parsed);
+				if (pages.length !== before) onStateChange();
+			}
 		} catch {
 			// Keep the last known list; the section and the tools still work.
 		}
 	}
 
 	async function connect(overrides: Partial<BrowserOptions> = {}): Promise<void> {
-		const settings = { ...options, ...overrides };
+		const settings = { ...readConfig().browser, ...overrides };
 		await disconnect();
 		state = "connecting";
 		error = undefined;
@@ -111,6 +136,7 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 			});
 			remote = isRemoteConnectPlan(plan);
 			state = "connected";
+			onStateChange();
 			const result = await client.callTool("list_pages", {}, { timeoutMs: 60_000 });
 			const parsed = parsePages(result);
 			if (!parsed) throw new Error("无法解析 list_pages 的结果");
@@ -122,6 +148,7 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 			await client?.close().catch(() => {});
 			client = undefined;
 			remote = false;
+			onStateChange();
 			throw new Error(error);
 		}
 	}
@@ -136,6 +163,7 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 		current = undefined;
 		roots.clear();
 		snapshots.clear();
+		onStateChange();
 	}
 
 	const tools = createBrowserTools({
@@ -153,7 +181,7 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 			current = pageId;
 		},
 		remote: () => remote,
-		allowRemoteUpload: () => options.allowRemoteUpload,
+		allowRemoteUpload: () => readConfig().browser.allowRemoteUpload,
 		ensureRoot,
 		snapshots,
 	});
@@ -249,7 +277,7 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 		});
 	});
 
-	if (options.listenOnStartup) {
+	if (readConfig().browser.listenOnStartup) {
 		void connect().catch((cause) => ctx.logger?.warn("yee-stack: 浏览器启动连接失败: %o", cause));
 	}
 
@@ -257,5 +285,31 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 		void disconnect();
 	});
 
-	return { connect, disconnect, status };
+	return {
+		connect,
+		disconnect,
+		status,
+		async use(pageId) {
+			await refresh();
+			const page = pages.find((candidate) => candidate.id === pageId);
+			if (!page) throw new Error(`没有找到 ${tabRef(pageId)}；先刷新标签页列表`);
+			current = page.id;
+			onStateChange();
+		},
+		notify: () => {
+			onStateChange();
+		},
+		toolNames: () => tools.map((tool) => tool.name),
+		snapshot: () => {
+			const tabs: PanelTab[] = pages.map((page) => ({ id: page.id, title: page.title, url: page.url }));
+			return {
+				state: state as PanelBrowserState,
+				error: error ?? null,
+				tabs,
+				current: current ?? null,
+				remote,
+				toolCount: state === "connected" ? tools.length : 0,
+			};
+		},
+	};
 }

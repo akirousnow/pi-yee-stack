@@ -1,6 +1,6 @@
 {
   "name": "yee-stack",
-  "version": "0.5.0",
+  "version": "0.6.4",
   "private": true,
   "description": "Yee Stack monorepo: one shared core, one package per feature (wish / ask / browser), and a host adapter for Pi and for DeepSeek Harness.",
   "type": "module",

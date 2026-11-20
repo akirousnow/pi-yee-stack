@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { ASK_SECTION, READ_ONLY_TOOLS, registerAsk } from "../ask.ts";
+import { fakeConfig } from "./fakes.ts";
 import { asAgent, asContext, createFakeCtx } from "./fakes.ts";
 
 const ctx = createFakeCtx();
-const ask = await registerAsk(asContext(ctx), { extraTools: ["browser_snapshot"], section: "ASK TEXT" });
+const config = fakeConfig({ ask: { extraTools: ["browser_snapshot"], section: "ASK TEXT" } });
+const ask = await registerAsk(asContext(ctx), () => config);
 const agent = ctx.createAgent();
 
 // ── prompt section ───────────────────────────────────────────────────────

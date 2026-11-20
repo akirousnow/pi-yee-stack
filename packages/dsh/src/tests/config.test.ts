@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { describeConfig, resolveConfig, toBrowserConfig } from "../config.ts";
+import { describeConfig, resolveConfig, resolvedConfig, toBrowserConfig } from "../config.ts";
 
-const resolved = resolveConfig({});
+const resolved = resolvedConfig(resolveConfig({}));
 assert.equal(resolved.wish.tier, "standard");
 assert.equal(resolved.wish.maxTokens, 900);
 assert.deepEqual(resolved.ask.extraTools, []);
@@ -12,7 +12,7 @@ assert.equal(resolved.browser.allowEval, false);
 assert.equal(resolved.browser.allowRemoteUpload, false);
 assert.equal(resolved.browser.listenOnStartup, false);
 
-const custom = resolveConfig({ wish: { tier: "heavy" }, ask: { extraTools: ["web_search"] }, browser: { connect: "url", endpoint: " http://127.0.0.1:9222 " } });
+const custom = resolvedConfig(resolveConfig({ wish: { tier: "heavy" }, ask: { extraTools: ["web_search"] }, browser: { connect: "url", endpoint: " http://127.0.0.1:9222 " } }));
 assert.equal(custom.wish.tier, "heavy");
 assert.deepEqual(custom.ask.extraTools, ["web_search"]);
 

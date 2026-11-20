@@ -14,11 +14,13 @@
  */
 
 import { pathToFileURL } from "node:url";
+import { createRequire } from "node:module";
 import { McpClient, type CallToolResult, StdioTransport, type Tool } from "@earendil-works/pi-mcp";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { BrowserConfig } from "yee-stack-core";
 import {
 	buildServerCommand,
+	resolveServerBin,
 	type ConnectPlan,
 	currentConnectEnv,
 	isRemoteConnectPlan,
@@ -252,7 +254,7 @@ export class BrowserEngine implements BrowserEngineLike {
 			throw error;
 		}
 
-		const server = buildServerCommand(config, plan, env);
+		const server = buildServerCommand(config, plan, env, resolveServerBin(createRequire(import.meta.url)));
 		const client = new McpClient({
 			name: CLIENT_NAME,
 			version: CLIENT_VERSION,

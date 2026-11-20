@@ -15,7 +15,6 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join, win32 } from "node:path";
 import type { BrowserChannel, BrowserConfig } from "yee-stack-core";
@@ -127,8 +126,14 @@ export function resolveHeadless(config: BrowserConfig, env: ConnectEnv): boolean
 	return env.platform === "linux" ? env.display === undefined : false;
 }
 
-/** Locate chrome-devtools-mcp's entry script inside node_modules. */
-export function resolveServerBin(requireFn: NodeJS.Require = createRequire(import.meta.url)): string {
+/**
+ * Locate chrome-devtools-mcp's entry script inside node_modules.
+ *
+ * The host passes its own `createRequire(import.meta.url)`: this module is
+ * inlined into the host bundle, so its own `import.meta.url` would point at
+ * the bundle, and `chrome-devtools-mcp` is a dependency of the host package.
+ */
+export function resolveServerBin(requireFn: NodeJS.Require): string {
 	let packageJsonPath: string;
 	try {
 		packageJsonPath = requireFn.resolve("chrome-devtools-mcp/package.json");
@@ -169,7 +174,7 @@ export function buildServerCommand(
 	config: BrowserConfig,
 	plan: ConnectPlan,
 	env: ConnectEnv,
-	binPath: string = resolveServerBin(),
+	binPath: string,
 ): ServerCommand {
 	const args = [binPath, ...commonServerFlags(config)];
 

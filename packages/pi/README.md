@@ -11,17 +11,17 @@
 
 > 前身是 [pi-wish-specializer](https://github.com/akirousnow/pi-wish-specializer)（仓库已更名为 `pi-yee-stack`，旧链接会自动跳转）。Wish 的行为**完全照旧**，只是设置搬进了 `/yee-config`。
 >
-> 0.5.0 起本包是 [yee-stack monorepo](https://github.com/akirousnow/pi-yee-stack) 里的 `packages/pi`，共享逻辑在 `yee-stack-core` 与 `@yee-stack/{wish,ask,browser}`。同一个仓库里还有 DeepSeek Harness 版本 `yee-stack-dsh`。
+> 0.5.0 起本包是 [yee-stack monorepo](https://github.com/akirousnow/pi-yee-stack) 里的 `packages/pi`，共享逻辑在 `yee-stack-core` 与 `yee-stack-{wish,ask,browser}`（仓库内私有包，发布时内联进本包）。同一个仓库里还有 DeepSeek Harness 版本 `yee-stack-dsh`。
 
 在 Pi 1.4.0 与 1.5.x 上测试过。
 
 ## 安装
 
 ```bash
-pi install npm:pi-yee-stack@0.5.0
+pi install npm:pi-yee-stack@0.7.0
 ```
 
-四个共享包（`yee-stack-core` / `-wish` / `-ask` / `-browser`）会作为依赖自动装上。
+0.7.0 起本包**自包含**：四个共享包（`yee-stack-core` / `-wish` / `-ask` / `-browser`）已内联进 `dist/index.js`，不再作为 npm 依赖安装。运行时只依赖 `@earendil-works/pi-*`、`chrome-devtools-mcp` 和 `typebox`。
 
 然后在 Pi 里重新加载：
 
@@ -31,15 +31,16 @@ pi install npm:pi-yee-stack@0.5.0
 
 用 `/hotkeys` 可以在 **Extensions** 一栏看到注册的快捷键。
 
-本地开发 / 试用（先构建共享包，Pi 才能解析 `@yee-stack/*`）：
+本地开发 / 试用（先构建，宿主包才会带上共享逻辑）：
 
 ```bash
 git clone https://github.com/akirousnow/pi-yee-stack.git
 cd pi-yee-stack
 npm install
-npm run build
+npm run build                # 生成 packages/pi/dist/index.js
 
-pi -e ./packages/pi          # 直接加载
+pi -e ./packages/pi/dist/index.js    # 加载打包产物
+pi -e ./packages/pi/src/index.ts     # 或直接跑源码（workspace 里能解析 yee-stack-*）
 
 # 或安装为长期包
 pi install ./packages/pi

@@ -1,7 +1,7 @@
 {
   "name": "yee-stack-dsh",
-  "version": "0.5.0",
-  "description": "Yee Stack for DeepSeek Harness: Wish Specializer (/wish), read-only Ask mode (/ask), and Chrome control through chrome-devtools-mcp (/browser).",
+  "version": "0.7.0",
+  "description": "Yee Stack for DeepSeek Harness: a Web panel plus Wish Specializer (/wish), read-only Ask mode (/ask), and Chrome control through chrome-devtools-mcp (/browser).",
   "type": "module",
   "license": "MIT",
   "author": "akirousnow",
@@ -17,11 +17,16 @@
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./client": {
+      "types": "./lib/client/index.d.ts",
+      "default": "./client.js"
+    },
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json"
   },
   "files": [
     "lib/",
+    "client.js",
     "src/",
     "!src/tests/**",
     "locale/*.json",
@@ -30,22 +35,36 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": false,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-locale"
+      ],
+      "external": [
+        "react",
+        "react/jsx-runtime"
+      ]
     }
   },
   "scripts": {
     "link:peers": "node ../../scripts/link-dsh.mjs",
     "prebuild": "node ../../scripts/link-dsh.mjs",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node ../../scripts/build-host.mjs . && node ../../scripts/build-client.mjs",
     "pretypecheck": "node ../../scripts/link-dsh.mjs",
     "typecheck": "tsc -p tsconfig.typecheck.json",
     "pretest": "node ../../scripts/link-dsh.mjs",
-    "test": "tsx src/tests/ask.test.ts && tsx src/tests/wish.test.ts && tsx src/tests/browser.test.ts && tsx src/tests/config.test.ts"
+    "test": "tsx src/tests/ask.test.ts && tsx src/tests/wish.test.ts && tsx src/tests/browser.test.ts && tsx src/tests/config.test.ts && tsx src/tests/panel.test.ts",
+    "build:client": "node ../../scripts/build-client.mjs",
+    "build:host": "node ../../scripts/build-host.mjs ."
   },
   "dependencies": {
-    "yee-stack-ask": "^0.5.0",
-    "yee-stack-browser": "^0.5.0",
-    "yee-stack-core": "^0.5.0",
-    "yee-stack-wish": "^0.5.0",
     "chrome-devtools-mcp": "~1.13.0"
   },
   "peerDependencies": {
@@ -69,5 +88,22 @@
   "engines": {
     "dsh": ">=0.2.0 <0.3.0",
     "node": ">=22.19.0"
+  },
+  "devDependencies": {
+    "yee-stack-ask": "^0.6.4",
+    "yee-stack-browser": "^0.6.4",
+    "yee-stack-core": "^0.6.4",
+    "yee-stack-wish": "^0.6.4",
+    "esbuild": "^0.28.2"
+  },
+  "bundle": {
+    "entry": "src/index.ts",
+    "outfile": "lib/index.js",
+    "inline": [
+      "yee-stack-ask",
+      "yee-stack-browser",
+      "yee-stack-core",
+      "yee-stack-wish"
+    ]
   }
 }

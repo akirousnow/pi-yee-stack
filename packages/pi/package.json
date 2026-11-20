@@ -1,6 +1,6 @@
 {
   "name": "pi-yee-stack",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "description": "A small stack of extensions for Pi: Wish Specializer (/wish), read-only Q&A Ask mode (/ask), browser control with $tN tabs (/browser), and a tabbed /yee-config page.",
   "type": "module",
   "license": "MIT",
@@ -23,27 +23,23 @@
     "coding-agent"
   ],
   "files": [
-    "src/",
-    "!src/**/*.test.ts",
-    "!src/test-support/",
+    "dist/",
     "README.md"
   ],
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "tsx src/config-store.test.ts && tsx src/shortcut.test.ts && tsx src/legacy.test.ts && tsx src/features/ask/mode.test.ts && tsx src/features/browser/tools.test.ts && tsx src/features/browser/mode.test.ts && tsx src/features/browser/autocomplete.test.ts && tsx src/features/browser/tab.test.ts && tsx src/ui/config-page.test.ts",
-    "test:e2e": "tsx src/features/browser/e2e.test.ts"
+    "test:e2e": "tsx src/features/browser/e2e.test.ts",
+    "build": "node ../../scripts/build-host.mjs .",
+    "prepublishOnly": "node ../../scripts/build-host.mjs ."
   },
   "pi": {
     "extensions": [
-      "./src/index.ts"
+      "./dist/index.js"
     ]
   },
   "dependencies": {
     "@earendil-works/pi-mcp": "~1.5.2",
-    "yee-stack-ask": "^0.5.0",
-    "yee-stack-browser": "^0.5.0",
-    "yee-stack-core": "^0.5.0",
-    "yee-stack-wish": "^0.5.0",
     "chrome-devtools-mcp": "~1.13.0",
     "typebox": "^1.3.27"
   },
@@ -64,6 +60,10 @@
     }
   },
   "devDependencies": {
+    "yee-stack-ask": "^0.6.4",
+    "yee-stack-browser": "^0.6.4",
+    "yee-stack-core": "^0.6.4",
+    "yee-stack-wish": "^0.6.4",
     "@earendil-works/pi-ai": "^1.5.2",
     "@earendil-works/pi-coding-agent": "^1.5.2",
     "@earendil-works/pi-tui": "^1.5.2",
@@ -73,5 +73,15 @@
   },
   "engines": {
     "node": ">=22.19.0"
+  },
+  "bundle": {
+    "entry": "src/index.ts",
+    "outfile": "dist/index.js",
+    "inline": [
+      "yee-stack-ask",
+      "yee-stack-browser",
+      "yee-stack-core",
+      "yee-stack-wish"
+    ]
   }
 }

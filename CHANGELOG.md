@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.7.0] - 2026-11-20
+
+**npm 结构改成「只发两个宿主包」**：四个共享包转成仓库内私有，被 esbuild 内联进宿主，外部只需装 `pi-yee-stack` 或 `yee-stack-dsh`。
+
+### 变更
+
+- `yee-stack-core` / `-wish` / `-ask` / `-browser` 标 `private: true`，退出发布清单；两个宿主包的 `dependencies` 里移除它们（改到 `devDependencies`，仅用于本地开发与类型检查）。
+- 新增 [`scripts/build-host.mjs`](scripts/build-host.mjs)：用 esbuild（`format: esm`、`platform: node`、`target: node22`）把宿主入口打成单文件，内联四个私有包，`@earendil-works/*`、`@deepseek-ai/*`、`chrome-devtools-mcp`、`typebox`、`node:*` 保持外部。
+  - `packages/pi/src/index.ts` → `packages/pi/dist/index.js`，`pi.extensions` 改指 `./dist/index.js`，`files` 只发 `dist/` + `README.md`。
+  - `packages/dsh/src/index.ts` → `packages/dsh/lib/index.js`；`tsc` 继续只出 `*.d.ts`，`client.js` 仍由 `build-client.mjs` 产出。
+- [`scripts/publish.sh`](scripts/publish.sh) 只发 2 个包，发布前自动跑 `build-host`；不再需要按拓扑顺序发 6 次、也不用手动同步 `^0.6.x` 内部依赖。
+- `resolveServerBin()` / `buildServerCommand()` 改为**必须由宿主传入 `require`**（`createRequire(import.meta.url)`）。之前默认值用共享包自己的 `import.meta.url`，内联后会指向宿主 bundle，且共享包并未声明 `chrome-devtools-mcp`（幽灵依赖）；现在解析点落在宿主包自身目录，反而更稳。
+- 版本：两个宿主包 `0.7.0`；四个私有包留在 `0.6.4`（不再发布）。
+
+### 兼容
+
+- 已经发在 npm 上的 `yee-stack-core` / `-wish` / `-ask` / `-browser`（`0.5.x` / `0.6.x`）**不 unpublish**，老版本 `pi-yee-stack` / `yee-stack-dsh` 仍可正常安装。
+- 安装命令不变，只是版本号：`pi install npm:pi-yee-stack@0.7.0`、`dsh plugin --profile web add yee-stack-dsh@0.7.0`。
+
+## [0.6.0] - 2026-11-20
+
+DeepSeek Harness 版从「只有命令」变成「**有界面**」：同一个 bundle 多出一个 Web 面板。
+
+### 新增
+
+- **Yee Stack 面板**（`packages/dsh`，`main` 面板 + 侧栏入口，id `yee-stack`）：
+  - Wish：档位、输出上限、当前会话路由；写愿望 →「特化」→ 结果**写进输入框**（经 `conversation.input.for(scope).setDraft`），不直接发。
+  - Ask：按会话的开关、放行/屏蔽工具、配置里的额外放行（可改）、注入的提示词（可展开看）。
+  - Browser：连接 / 启动 Chrome / 断开、tab 列表与「设为当前」、chrome-devtools-mcp 的状态与「重启」。
+  - 高级：全部设置就地编辑，写入走 `settings.mutate` 落到 profile 的 `cordis.patch.yml`。
+- **`yeeStackPanel` Remote 命名空间**（`src/panel.ts`）：`snapshot` / `wish` / `ask` / `browser` / `restartMcp`，面板的每个值都从这里读，不在浏览器里猜。
+- **`scripts/build-client.mjs`**：用 esbuild 把 `src/client/index.ts` 打成 `window.__ModuleLoader__.load({ id, factory(require) })` 的 lazy-CJS 工厂（`packages/dsh/client.js`），`react` 走 Web 的模块表，其余内联。跟着 `npm run build` 一起跑。
+- 面板状态契约 `src/client/state.ts`：纯类型 + 一个按插件实例分组的监听注册表，Host 与浏览器两半共用。
+- `src/tests/panel.test.ts`：投影、配置路径、监听注册表的单元测试。
+
+### 变更
+
+- **配置字段全部改成 `volatile()`**：面板（和设置页）写一个字段只更新运行中的引用并触发 `loader/volatile-update`，不再重载插件——改设置不会断浏览器连接、也不会清掉任何会话的 Ask 模式。`apply(ctx, config)` 现在拿到的是「活引用」形状，用 `resolvedConfig(config)` 取一份快照。
+- `registerAsk` / `registerBrowser` 改成读 `readConfig()`：Ask 的额外放行集合、浏览器连接参数都在用时现读，所以面板改完立刻生效。
+- `browser.ts` 增加 `snapshot()` / `use(pageId)` / `notify()`，面板拿结构化状态而不是拼字符串。
+- chrome-devtools-mcp 改由插件通过 `ctx.mcpManager.register()` 贡献（profile 自己配了同名 server 时让位），面板可以显示状态并重启。
+- `resolveConfig()` 保持原样（loader 语义），新增 `resolvedConfig()`；`describeConfig()` 两种形状都收。
+- `packages/dsh/package.json`：新增 `exports["./client"]`、`dsh.client`（`platform: web`、`inject`、`external`），`files` 带上 `client.js`；`build` 变成 `tsc + build-client`。
+
+### 不变
+
+- 所有斜杠命令（`/wish`、`/ask`、`/browser`、`/yee-config`）、15 个 `browser_*` 工具、`$tN` 引用、三层只读保证、按会话保存的 Ask 开关、Pi 版的一切行为。
+
 ## [0.5.0] - 2026-11-20
 
 仓库从单包扩展改成 **monorepo**，并新增 DeepSeek Harness 版。

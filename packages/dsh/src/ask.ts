@@ -23,7 +23,17 @@ import type { ProjectionDefinition, ProjectionHandle } from "@deepseek-ai/dsh-se
 import type { Session } from "@deepseek-ai/dsh-session";
 import { askBlockedReason, createAskPolicy } from "yee-stack-ask";
 import { z as zod } from "zod";
-import type { AskOptions } from "./config.ts";
+import type { ResolvedConfig } from "./config.ts";
+
+/** What the Ask policy currently lets through, for the panel and `/ask status`. */
+export interface AskPolicyView {
+	/** Tools the policy allows right now. */
+	allowed: string[];
+	/** Tools the policy denies right now. */
+	blocked: string[];
+	/** Extra tools the config lets through on top of the read-only set. */
+	extraTools: string[];
+}
 
 declare module "@deepseek-ai/dsh-session/types" {
 	interface SessionEventMap {
@@ -79,11 +89,21 @@ export interface AskRuntime {
 	set(agent: Agent, active: boolean): void;
 	/** Re-apply the logged state to a freshly created agent. */
 	sync(agent: Agent): void;
+	/** What the read-only policy allows and denies right now. */
+	policy(): AskPolicyView;
+	/** The guidance injected while the mode is on. */
+	section(): string;
+	/** Re-resolve the extra-tool set and re-apply restrictions to live agents. */
+	refresh(agents: readonly Agent[]): void;
 }
 
-export async function registerAsk(ctx: Context, options: AskOptions): Promise<AskRuntime> {
+/**
+ * @param readConfig - reads the current config (live references); called per
+ *   decision so a panel write takes effect without a plugin reload.
+ */
+export async function registerAsk(ctx: Context, readConfig: () => ResolvedConfig): Promise<AskRuntime> {
 	const policy = createAskPolicy({ readOnly: READ_ONLY_TOOLS, never: NEVER_ALLOWED_TOOLS });
-	const extra = new Set(options.extraTools);
+	let extra = new Set(readConfig().ask.extraTools);
 	const handle: ProjectionHandle<AskState> = await ctx.sessionProjections.register(askProjectionDefinition);
 
 	const isActive = (session: Session): boolean => handle.stateOf(session).active;
@@ -112,7 +132,7 @@ export async function registerAsk(ctx: Context, options: AskOptions): Promise<As
 	ctx.systemPrompt.section({
 		name: ASK_SECTION,
 		order: ctx.systemPrompt.getSectionOrder("PLAN_POLICY") + 10,
-		text: (context) => (context.agent !== undefined && isActive(context.agent.session) ? options.section : ""),
+		text: (context) => (context.agent !== undefined && isActive(context.agent.session) ? readConfig().ask.section : ""),
 	});
 
 	ctx.tools.guard((execution) => {
@@ -130,13 +150,22 @@ export async function registerAsk(ctx: Context, options: AskOptions): Promise<As
 		restrictions.delete(agent);
 	});
 
-	const statusText = (agent: Agent): string => {
+	const view = (): AskPolicyView => {
 		const names = ctx.tools.definitions().map((definition) => definition.name);
+		return {
+			allowed: policy.allowed(names, extra),
+			blocked: policy.blocked(names, extra),
+			extraTools: [...extra],
+		};
+	};
+
+	const statusText = (agent: Agent): string => {
+		const current = view();
 		return [
 			`Ask 模式：${isActive(agent.session) ? "开启" : "关闭"}`,
-			`放行的只读工具：${policy.allowed(names, extra).join(", ") || "（无）"}`,
-			`已屏蔽：${policy.blocked(names, extra).join(", ") || "（无）"}`,
-			`配置里的额外放行：${options.extraTools.join(", ") || "（无）"}`,
+			`放行的只读工具：${current.allowed.join(", ") || "（无）"}`,
+			`已屏蔽：${current.blocked.join(", ") || "（无）"}`,
+			`配置里的额外放行：${current.extraTools.join(", ") || "（无）"}`,
 		].join("\n");
 	};
 
@@ -186,5 +215,11 @@ export async function registerAsk(ctx: Context, options: AskOptions): Promise<As
 		isActive,
 		set,
 		sync: (agent) => applyRestriction(agent),
+		policy: view,
+		section: () => readConfig().ask.section,
+		refresh: (agents) => {
+			extra = new Set(readConfig().ask.extraTools);
+			for (const agent of agents) applyRestriction(agent);
+		},
 	};
 }

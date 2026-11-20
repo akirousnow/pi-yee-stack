@@ -8,6 +8,12 @@
 import type { Agent } from "@deepseek-ai/dsh-agent";
 import type { Context } from "@deepseek-ai/cordis";
 import type { Session } from "@deepseek-ai/dsh-session";
+import { type ResolvedConfig, resolveConfig, resolvedConfig } from "../config.ts";
+
+/** A plain resolved config the register functions can read live. */
+export function fakeConfig(input: unknown = {}): ResolvedConfig {
+	return resolvedConfig(resolveConfig(input));
+}
 
 export interface FakeSession {
 	readonly id: string;
