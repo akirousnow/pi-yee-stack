@@ -18,7 +18,7 @@
 从 GitHub 安装：
 
 ```bash
-pi install git:github.com/akirousnow/pi-yee-stack@v0.4.0
+pi install git:github.com/akirousnow/pi-yee-stack@v0.4.1
 ```
 
 然后在 Pi 里重新加载：
@@ -46,7 +46,7 @@ pi install ./pi-yee-stack
 ```bash
 pi list                                   # 找到旧包的来源
 pi remove git:github.com/akirousnow/pi-wish-specializer@v0.2.0   # 以 pi list 显示的为准
-pi install git:github.com/akirousnow/pi-yee-stack@v0.4.0
+pi install git:github.com/akirousnow/pi-yee-stack@v0.4.1
 ```
 
 你原来的设置不会丢：首次运行时，`~/.pi/agent/wish-specializer.json` 里的模型、风格、快捷键会被自动导入（旧文件原样保留，不会被修改或删除），第一次在 `/yee-config` 里改动后才会写入新的 `yee-stack.json`。`/wish-config` 仍然可用，会直接打开配置页的 Wish 标签。

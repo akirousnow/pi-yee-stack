@@ -1,6 +1,6 @@
 {
   "name": "pi-yee-stack",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "A small stack of extensions for Pi: Wish Specializer (/wish), read-only Q&A Ask mode (/ask), browser control with $tN tabs (/browser), and a tabbed /yee-config page.",
   "type": "module",
   "license": "MIT",
@@ -34,7 +34,7 @@
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test:unit": "tsx extensions/yee-stack/config.test.ts && tsx extensions/yee-stack/shortcut.test.ts && tsx extensions/yee-stack/legacy.test.ts && tsx extensions/yee-stack/features/wish/prompt.test.ts && tsx extensions/yee-stack/features/ask/policy.test.ts && tsx extensions/yee-stack/features/ask/mode.test.ts && tsx extensions/yee-stack/features/browser/refs.test.ts && tsx extensions/yee-stack/features/browser/tabs.test.ts && tsx extensions/yee-stack/features/browser/snapshot.test.ts && tsx extensions/yee-stack/features/browser/args.test.ts && tsx extensions/yee-stack/features/browser/tools.test.ts && tsx extensions/yee-stack/features/browser/mode.test.ts && tsx extensions/yee-stack/features/browser/tab.test.ts && tsx extensions/yee-stack/ui/config-page.test.ts",
+    "test:unit": "tsx extensions/yee-stack/config.test.ts && tsx extensions/yee-stack/shortcut.test.ts && tsx extensions/yee-stack/legacy.test.ts && tsx extensions/yee-stack/features/wish/prompt.test.ts && tsx extensions/yee-stack/features/ask/policy.test.ts && tsx extensions/yee-stack/features/ask/mode.test.ts && tsx extensions/yee-stack/features/browser/refs.test.ts && tsx extensions/yee-stack/features/browser/tabs.test.ts && tsx extensions/yee-stack/features/browser/snapshot.test.ts && tsx extensions/yee-stack/features/browser/args.test.ts && tsx extensions/yee-stack/features/browser/tools.test.ts && tsx extensions/yee-stack/features/browser/mode.test.ts && tsx extensions/yee-stack/features/browser/autocomplete.test.ts && tsx extensions/yee-stack/features/browser/tab.test.ts && tsx extensions/yee-stack/ui/config-page.test.ts",
     "test": "npm run typecheck && npm run test:unit",
     "test:e2e": "tsx extensions/yee-stack/features/browser/e2e.test.ts"
   },

@@ -47,6 +47,8 @@ export function createTabAutocompleteProvider(
 			const before = line.slice(0, cursorCol);
 			const trigger = triggerIndex(before);
 			if (!trigger) return current.getSuggestions(lines, cursorLine, cursorCol, request);
+			// `$1`, `$5` and friends are shell/template syntax, not tab names.
+			if (/^\d+$/.test(trigger.query)) return current.getSuggestions(lines, cursorLine, cursorCol, request);
 
 			const pages = options.pages();
 			if (pages.length === 0) return current.getSuggestions(lines, cursorLine, cursorCol, request);
@@ -60,17 +62,21 @@ export function createTabAutocompleteProvider(
 
 			return { items, prefix: `$${trigger.query}` };
 		},
-		applyCompletion(lines, cursorLine, cursorCol, item) {
+		applyCompletion(lines, cursorLine, cursorCol, item, prefix) {
 			const line = lines[cursorLine] ?? "";
-			const before = line.slice(0, cursorCol);
-			const trigger = triggerIndex(before);
-			const start = trigger?.start ?? cursorCol;
+			const trigger = triggerIndex(line.slice(0, cursorCol));
+			// Slash commands, files and everything else belong to the provider
+			// we wrap. Only a $tN suggestion from our own getSuggestions is ours;
+			// inserting it blindly would turn `/brow` into `/browbrowser`.
+			if (!trigger || !prefix.startsWith("$") || !item.value.startsWith("$t")) {
+				return current.applyCompletion(lines, cursorLine, cursorCol, item, prefix);
+			}
 			const next = [...lines];
-			next[cursorLine] = `${line.slice(0, start)}${item.value} ${line.slice(cursorCol)}`;
+			next[cursorLine] = `${line.slice(0, trigger.start)}${item.value} ${line.slice(cursorCol)}`;
 			return {
 				lines: next,
 				cursorLine,
-				cursorCol: start + item.value.length + 1,
+				cursorCol: trigger.start + item.value.length + 1,
 			};
 		},
 		shouldTriggerFileCompletion(lines, cursorLine, cursorCol) {

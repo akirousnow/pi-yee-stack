@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1] - 2026-11-20
+
+### 修复
+
+- `$` 补全包裹了 Pi 的补全器，但 `applyCompletion` 无条件按 tab 处理，导致 `/brow` + Tab 变成 `/browbrowser`。现在只有 `$tN` 补全由浏览器扩展处理，斜杠命令、文件路径和命令参数都交回 Pi。
+- `$5`、`$1` 这类纯数字不再被当成 tab 查询，避免和 shell 变量、prompt 模板冲突。
+
 ## [0.4.0] - 2026-11-20
 
 新增 **Browser**：用 chrome-devtools-mcp 当引擎，在 TUI 里用 `$t3` 选定 tab 后直接操控真实 Chrome。
