@@ -37,7 +37,16 @@ function resolveDshRoot(explicit) {
 	throw new Error("cannot find the @deepseek-ai/dsh package; pass its path as the first argument");
 }
 
-const dshRoot = resolveDshRoot(process.argv[2]);
+let dshRoot;
+try {
+	dshRoot = resolveDshRoot(process.argv[2]);
+} catch (error) {
+	// A fresh clone on a machine without the harness still installs fine; only
+	// @yee-stack/dsh's typecheck/build needs the links.
+	if (process.argv[2]) throw error;
+	console.log("link-dsh: no @deepseek-ai/dsh install found; skipping (pass a path to link one)");
+	process.exit(0);
+}
 const nested = join(dshRoot, "node_modules", "@deepseek-ai");
 if (!existsSync(nested)) throw new Error(`${nested} does not exist — is that a dsh install?`);
 

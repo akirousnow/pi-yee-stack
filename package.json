@@ -23,7 +23,9 @@
     "typecheck": "npm run build && npm run typecheck --workspaces --if-present",
     "test": "npm run build && npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w pi-yee-stack --if-present",
-    "clean": "rm -rf packages/*/lib packages/features/*/lib"
+    "clean": "rm -rf packages/*/lib packages/features/*/lib",
+    "link:dsh": "node scripts/link-dsh.mjs",
+    "postinstall": "node scripts/link-dsh.mjs"
   },
   "devDependencies": {
     "@types/node": "^25.7.0",
