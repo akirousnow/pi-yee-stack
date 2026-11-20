@@ -352,14 +352,15 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 	pi.registerCommand("browser", {
 		description: "浏览器：/browser 选择 tab · on [地址] · launch · off · status · tabs · use $t3",
 		getArgumentCompletions: (prefix) => {
-			const text = prefix.trim().toLowerCase();
-			if (text.startsWith("use ")) {
-				const query = text.slice(4);
+			const raw = prefix.toLowerCase();
+			if (/^use\s/.test(raw)) {
+				const query = raw.replace(/^use\s+/, "");
 				return engine
 					.pages()
 					.filter((page) => !query || `${tabRef(page.id)} ${page.title} ${page.url}`.toLowerCase().includes(query))
 					.map((page) => ({ value: tabRef(page.id), label: `${tabRef(page.id)} ${page.title || page.url}` }));
 			}
+			const text = raw.trim();
 			const matches = SUBCOMMANDS.filter((command) => command.startsWith(text));
 			return matches.length > 0 ? matches.map((command) => ({ value: command, label: command })) : null;
 		},
