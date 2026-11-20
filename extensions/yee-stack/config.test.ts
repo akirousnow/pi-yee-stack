@@ -169,6 +169,95 @@ try {
 		assert.equal(store.get().wish.tier, "standard");
 	}
 
+	// ── browser config ────────────────────────────────────────────────────
+	{
+		assert.equal(defaultConfig().browser.connect, "auto");
+		assert.equal(defaultConfig().browser.channel, "stable");
+		assert.equal(defaultConfig().browser.headless, "auto");
+		assert.equal(defaultConfig().browser.focusTab, true);
+		assert.equal(defaultConfig().browser.listenOnStartup, false);
+		assert.equal(defaultConfig().browser.allowEval, false);
+		assert.equal(defaultConfig().browser.shortcut, null);
+
+		const browser = normalizeConfig({
+			browser: {
+				connect: "launch",
+				channel: "beta",
+				endpoint: "https://remote:9222",
+				executable: "  /opt/chrome  ",
+				headless: "on",
+				profileDir: "/tmp/profile",
+				listenOnStartup: true,
+				focusTab: false,
+				allowEval: true,
+				shortcut: " F7 ",
+			},
+		});
+		assert.deepEqual(browser.browser, {
+			connect: "launch",
+			channel: "beta",
+			endpoint: "https://remote:9222",
+			executable: "/opt/chrome",
+			headless: "on",
+			profileDir: "/tmp/profile",
+			listenOnStartup: true,
+			focusTab: false,
+			allowEval: true,
+			shortcut: "f7",
+		});
+
+		const junk = normalizeConfig({
+			browser: {
+				connect: "nope",
+				channel: "nope",
+				endpoint: "ftp://x",
+				executable: 42,
+				headless: "nope",
+				profileDir: "   ",
+				listenOnStartup: "yes",
+				focusTab: "no",
+				allowEval: 1,
+				shortcut: "z",
+			},
+		});
+		assert.deepEqual(junk.browser, defaultConfig().browser);
+	}
+
+	// ── browser shortcut collision: Wish, then Ask, keep theirs ────────────
+	{
+		const paths = freshPaths();
+		writeFileSync(
+			paths.config,
+			JSON.stringify({
+				wish: { shortcut: "ctrl+alt+w" },
+				ask: { shortcut: "ctrl+alt+a" },
+				browser: { shortcut: "ctrl+alt+a" },
+			}),
+		);
+		const store = new ConfigStore(paths);
+		assert.equal(store.get().browser.shortcut, null, "Browser yields to Ask");
+		assert.equal(store.hadBrowserShortcutCollision, true);
+
+		const toWish = freshPaths();
+		writeFileSync(
+			toWish.config,
+			JSON.stringify({ wish: { shortcut: "ctrl+alt+k" }, ask: { shortcut: "f9" }, browser: { shortcut: "ctrl+alt+k" } }),
+		);
+		const wishStore = new ConfigStore(toWish);
+		assert.equal(wishStore.get().browser.shortcut, null, "Browser yields to Wish");
+		assert.equal(wishStore.hadBrowserShortcutCollision, true);
+
+		const clean = freshPaths();
+		writeFileSync(clean.config, JSON.stringify({ browser: { shortcut: "f10" } }));
+		const cleanStore = new ConfigStore(clean);
+		assert.equal(cleanStore.get().browser.shortcut, "f10");
+		assert.equal(cleanStore.hadBrowserShortcutCollision, false);
+
+		const optOut = freshPaths();
+		writeFileSync(optOut.config, JSON.stringify({ wish: { shortcut: "f10" }, browser: { shortcut: null } }));
+		assert.equal(new ConfigStore(optOut).hadBrowserShortcutCollision, false, "an explicit opt-out is not a collision");
+	}
+
 	console.log("yee-stack config tests passed");
 } finally {
 	rmSync(dir, { recursive: true, force: true });

@@ -7,6 +7,8 @@
  *           requirements, edit them in a floating dialog, write them back.
  *   Ask   — /ask and a shortcut: read-only Q&A. The agent can read, grep, find
  *           and ls, but cannot edit files or run commands.
+ *   Browser — /browser and `$tN` tabs: drive a real Chrome through
+ *           chrome-devtools-mcp, one tab at a time.
  *
  *   /yee-config opens the tabbed settings page for all of them.
  */
@@ -14,6 +16,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { ConfigStore } from "./config.ts";
 import { registerAsk } from "./features/ask/index.ts";
+import { registerBrowser } from "./features/browser/index.ts";
 import { registerWish } from "./features/wish/index.ts";
 import { findOtherWishExtensions } from "./legacy.ts";
 import { openConfigPage } from "./ui/config-page.ts";
@@ -22,7 +25,13 @@ export default function yeeStack(pi: ExtensionAPI): void {
 	// Read inside the factory (not at import time) so every reload sees the file as it is now.
 	const store = new ConfigStore();
 
-	const features = [registerWish(pi, store), registerAsk(pi, store)];
+	const wish = registerWish(pi, store);
+	const ask = registerAsk(pi, store);
+	// Browser last: its before_agent_start runs after Ask's, so it can add the
+	// read-only browser tools back while Ask mode keeps them cut down.
+	const browser = registerBrowser(pi, store, { askEnabled: () => ask.isEnabled() });
+
+	const features = [wish, ask, browser];
 	const tabIds: string[] = features.map((feature) => feature.id);
 
 	async function openConfig(ctx: ExtensionCommandContext, initialTab?: string): Promise<void> {
@@ -43,7 +52,7 @@ export default function yeeStack(pi: ExtensionAPI): void {
 	}
 
 	pi.registerCommand("yee-config", {
-		description: "打开 Yee Stack 配置页（多标签：Wish / Ask）；/yee-config ask 直接打开 Ask 标签",
+		description: "打开 Yee Stack 配置页（多标签：Wish / Ask / Browser）；/yee-config ask 直接打开 Ask 标签",
 		getArgumentCompletions: (prefix) => {
 			const matches = tabIds.filter((id) => id.startsWith(prefix.trim().toLowerCase()));
 			return matches.length > 0 ? matches.map((id) => ({ value: id, label: id })) : null;
@@ -72,6 +81,13 @@ export default function yeeStack(pi: ExtensionAPI): void {
 		if (store.hadShortcutCollision) {
 			ctx.ui.notify(
 				"Ask 的快捷键与 Wish 相同，已停用 Ask 快捷键；可在 /yee-config 的 Ask 标签里重新设置",
+				"warning",
+			);
+		}
+
+		if (store.hadBrowserShortcutCollision) {
+			ctx.ui.notify(
+				"Browser 的快捷键与 Wish 或 Ask 相同，已停用 Browser 快捷键；可在 /yee-config 的 Browser 标签里重新设置",
 				"warning",
 			);
 		}

@@ -6,7 +6,8 @@
 |---|---|---|
 | **Wish** 许愿特化器 | `/wish`、`Ctrl+Alt+W` | 一句话愿望 → 补上工作模型真正需要的“方向性要求”，在浮窗里改完再写回输入框 |
 | **Ask** 只读问答 | `/ask`、`Ctrl+Alt+A` | 进入后 agent 只做问答：能读、搜、列文件，但不能改文件、不能跑命令 |
-| **配置页** | `/yee-config` | 多标签配置页，Wish / Ask 的设置都在里面 |
+| **Browser** 浏览器操控 | `/browser`、`$t3` | 连上真实 Chrome，用 `$t3` 选定 tab 后直接看快照、点击、填表 |
+| **配置页** | `/yee-config` | 多标签配置页，Wish / Ask / Browser 的设置都在里面 |
 
 > 前身是 [pi-wish-specializer](https://github.com/akirousnow/pi-wish-specializer)（仓库已更名为 `pi-yee-stack`，旧链接会自动跳转）。Wish 的行为**完全照旧**，只是设置搬进了 `/yee-config`。
 
@@ -17,7 +18,7 @@
 从 GitHub 安装：
 
 ```bash
-pi install git:github.com/akirousnow/pi-yee-stack@v0.3.0
+pi install git:github.com/akirousnow/pi-yee-stack@v0.4.0
 ```
 
 然后在 Pi 里重新加载：
@@ -45,7 +46,7 @@ pi install ./pi-yee-stack
 ```bash
 pi list                                   # 找到旧包的来源
 pi remove git:github.com/akirousnow/pi-wish-specializer@v0.2.0   # 以 pi list 显示的为准
-pi install git:github.com/akirousnow/pi-yee-stack@v0.3.0
+pi install git:github.com/akirousnow/pi-yee-stack@v0.4.0
 ```
 
 你原来的设置不会丢：首次运行时，`~/.pi/agent/wish-specializer.json` 里的模型、风格、快捷键会被自动导入（旧文件原样保留，不会被修改或删除），第一次在 `/yee-config` 里改动后才会写入新的 `yee-stack.json`。`/wish-config` 仍然可用，会直接打开配置页的 Wish 标签。
@@ -55,13 +56,14 @@ pi install git:github.com/akirousnow/pi-yee-stack@v0.3.0
 ```text
 /yee-config          # 打开配置页
 /yee-config ask      # 直接打开 Ask 标签
+/yee-config browser  # 直接打开 Browser 标签
 /wish-config         # 直接打开 Wish 标签（旧入口）
 ```
 
 ```text
  Yee Stack 设置
 
- [ 许愿 Wish ]   提问 Ask
+ [ 许愿 Wish ]   提问 Ask   浏览器 Browser
  ─────────────────────────────────────────────
 
  → 模型      跟随当前 Pi 模型
@@ -72,7 +74,7 @@ pi install git:github.com/akirousnow/pi-yee-stack@v0.3.0
 ```
 
 - `←` / `→`（或 `Tab` / `Shift+Tab`）切换标签，`↑` / `↓` 选择，`Enter` / `Space` 修改，`Esc` 关闭。
-- 改动**立即保存**；选模型、选工具这类选项会进入一个子视图，`Esc` 返回。
+- 改动**立即保存**；选模型、选工具、填地址这类选项会进入一个子视图，`Esc` 返回。
 - **快捷键**：按下新的组合键即可。支持 `Ctrl` / `Alt` / `Super` + 字母或数字，或 `F1`–`F12`；必须带修饰键或使用功能键，避免吞掉正常输入；与 Pi 内置快捷键、或另一个功能的快捷键冲突时会拒绝并提示；`Backspace` 清除（不设置快捷键）。
 - 改了快捷键后，关闭配置页时会自动重载扩展让它生效；如果 Pi 正在生成回复，则在当前回合结束后手动 `/reload`。
 
@@ -199,6 +201,79 @@ pi -p "这个项目的入口在哪？" --ask       # 等价
 
 Ask 模式按**会话**保存：`/reload`、`/resume`、`pi -c`、`/tree` 切换分支后都会恢复；`/new` 是新会话，默认关闭。退出 Ask 模式时，工具会恢复成进入前的样子。
 
+## Browser：浏览器操控
+
+Yee Stack 自己当 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 的 MCP 客户端：一个 Pi 进程只起一个 MCP 子进程，`/reload`、`/new`、`/resume` 不会重连，也不会重复触发 Chrome 的授权弹窗。连上之后：
+
+- 在输入框里打 `$` 会列出所有 tab，选中后插入 `$t3 `；
+- 发送 `$t3 把近 7 天数据整理成表格` 时，`$t3` 成为本次的**当前 tab**（并切到 Chrome 前台，可关闭）；
+- 模型用 `browser_*` 工具看无障碍快照、点击、填表、导航；每次调用默认就是当前 tab。
+
+你的原话不会被改写：`$t3` 留在消息里，由 `<yee-browser>` 系统提示分区解释。
+
+### 连接
+
+| 方式 | 说明 |
+|---|---|
+| 自动连接（默认） | 找到已经允许远程调试的 Chrome（Chrome 144+ 打开 `chrome://inspect/#remote-debugging`），否则试 `127.0.0.1:9222` |
+| 指定地址 | `/browser on http://host:9222` 或 `ws://…`，适合远程机器和 SSH 隧道 |
+| 自己启动 | `/browser launch`，使用 `~/.pi/agent/yee-browser/profile` 这个独立 profile；没有 `DISPLAY` 时自动无头，root 下自动加 `--no-sandbox` |
+
+Chrome 136 起，默认 profile 会忽略 `--remote-debugging-port`。想连日常用的 Chrome，用 Chrome 144+ 的 `chrome://inspect` 开关；否则用 `/browser launch`。
+
+### 命令
+
+| 命令 | 效果 |
+|---|---|
+| `/browser` | 未连接时连接；已连接时弹出 tab 选择框（最后一项是断开） |
+| `/browser on [地址]` | 连接；带地址时按「指定地址」连 |
+| `/browser launch` | 启动一个独立 profile 的 Chrome 并连接 |
+| `/browser off` | 断开 |
+| `/browser status` | 连接方式、版本、pid、tab 数、当前 tab、激活的工具 |
+| `/browser tabs` | 列出 tab |
+| `/browser use $t3` | 只切换当前 tab，不发送消息 |
+| `pi --browser` | 启动时连接（也可在 `/yee-config → Browser` 打开「启动时监听」） |
+
+底栏显示 `🌐 3 tabs · $t3 标题`。
+
+### `$` 与 tab
+
+- `$` 后面可以继续打字过滤标题、域名或 URL；`$HOME`、`$5` 这类不匹配任何 tab 的输入会交回 Pi 原来的补全。
+- tab 名就是 chrome-devtools-mcp 的 pageId：`$t3` = `pageId 3`。
+- 会话里保存的是 `{pageId, epoch, url, title}`。MCP 重启后 pageId 会变，恢复时按 URL、再按标题找回。
+- 多个 tab 时不给 `page` 参数会报错并列出 tab；只有一个 tab 时直接用它。
+
+### 工具
+
+| 工具 | 作用 | 只读 |
+|---|---|---|
+| `browser_tabs` | 列出 tab | ✓ |
+| `browser_snapshot` | 无障碍快照，元素带 uid | ✓ |
+| `browser_screenshot` | 视口 / 整页 / 单个元素截图（JPEG，≤1280px） | ✓ |
+| `browser_wait` | 等文字出现 | ✓ |
+| `browser_navigate` | 打开 URL、后退、前进、刷新 | |
+| `browser_new_tab` / `browser_close_tab` | 新建 / 关闭 tab | |
+| `browser_click` / `browser_hover` | 按 uid 点击 / 悬停 | |
+| `browser_fill` / `browser_fill_form` | 填一个 / 批量填表单 | |
+| `browser_type` / `browser_press` | 键盘输入 / 按键 | |
+| `browser_dialog` | 处理 alert / confirm / prompt | |
+| `browser_upload` | 给 file input 设置文件（限当前项目目录） | |
+
+- 工具只在连接期间激活，断开即移除。
+- 操作类工具默认带 `includeSnapshot`，但只回传**新增或变化的元素**（uid 稳定，新元素用新一代前缀）；导航后自动回整页。
+- 描述和参数是重写过的，15 个工具约 2.2k token，而不是上游 33 个的 7–8k。
+- 不提供 `filePath` 这类会写文件的参数；快照过长时中间截断，全文存到临时文件并把路径告诉模型。
+
+### 和 Ask 模式一起用
+
+Ask 模式会放行带 `readOnlyHint` 的工具，所以 `/ask $t3 这页讲了什么` 能看快照、截图，但不能点击、输入、导航。
+
+### 安全
+
+本扩展**不弹确认框**：点击、提交、上传都直接执行。需要只读时用 Ask 模式；不确定时先 `/ask` 看清楚，再退出 Ask 操作。
+
+chrome-devtools-mcp 默认关闭 JavaScript 求值（`--no-javascript-evaluation`），并隐藏网络请求里的敏感头（`--redactNetworkHeaders`）；可以在 `/yee-config → Browser` 打开「允许执行 JS」（重新连接后生效）。
+
 ## 配置文件
 
 位置：
@@ -220,13 +295,26 @@ Ask 模式按**会话**保存：`/reload`、`/resume`、`pi -c`、`/tree` 切换
   "ask": {
     "shortcut": "ctrl+alt+a",
     "extraTools": ["web_search"]
+  },
+  "browser": {
+    "connect": "auto",
+    "channel": "stable",
+    "endpoint": null,
+    "executable": null,
+    "headless": "auto",
+    "profileDir": null,
+    "listenOnStartup": false,
+    "focusTab": true,
+    "allowEval": false,
+    "shortcut": null
   }
 }
 ```
 
 - `wish.model` 为 `null` 表示跟随当前 Pi 模型；
 - `shortcut` 为 `null` 表示不设置快捷键；缺省则使用默认值；
-- 两个功能的快捷键相同时，Wish 保留，Ask 的会被停用（启动时提示）；
+- 三个功能的快捷键冲突时按 Wish > Ask > Browser 保留，后面的会被停用（启动时提示）；
+- `browser.connect` 取 `auto` / `url` / `launch`；`browser.endpoint` 只在 `url` 时使用；`browser.headless` 取 `auto` / `on` / `off`；
 - 读取时对缺失、损坏、未知字段都会退回默认值；写入是原子的，并且每次保存前都会重新读取文件，同时开着多个 Pi 也不会互相覆盖对方的改动。
 
 ## 实现说明
@@ -236,19 +324,26 @@ Ask 模式按**会话**保存：`/reload`、`/resume`、`pi -c`、`/tree` 切换
 - 结果浮窗使用 `ctx.ui.custom(..., { overlay: true })`，内含 Pi 的 `Editor` 组件，保留光标、IME、换行、滚动和补全行为；每行都铺满主题 `customMessageBg` 背景。
 - `/yee-config` 是同一种浮窗：标签栏 + 每个功能自己的设置行，选模型 / 录快捷键 / 勾选工具时会替换成对应的子视图。
 - 快捷键通过 `pi.registerShortcut()` 注册（Pi 没有“取消注册”，所以改键后要重载）。
+- Browser 使用 `@earendil-works/pi-mcp` 的 `McpClient` + `StdioTransport` 直接拉起 chrome-devtools-mcp，不经过 `pi.registerMcpServer`：`$` 补全、`input` 钩子和命令都要拿 `list_pages` 的 pageId，而这些地方调不到 Pi 工具。MCP 子进程是进程级单例，按会话引用计数，最后一个会话退出后宽限 60 秒再关；退出 Pi 时同步杀掉。
+- 连接参数由 `features/browser/args.ts` 生成：`auto` 先查对应渠道的 `DevToolsActivePort`，再试 `127.0.0.1:9222`，都不行就给出三种办法；`launch` 用独立 profile，`--executablePath` 与 `--channel` 不会同时传。
+- 工具是 chrome-devtools-mcp 的转发层：`pageId` 可选（默认当前 tab），去掉写文件的参数，快照按 uid 做增量，只读工具标 `readOnlyHint`。
 - 扩展不会修改 Pi 本身，也不会修改 Pi 的当前模型。
 
 ## 注意事项
 
-- 如果快捷键被终端占用，可以直接用命令（`/wish`、`/ask`），或在 `/yee-config` 里换一个。
+- 如果快捷键被终端占用，可以直接用命令（`/wish`、`/ask`、`/browser`），或在 `/yee-config` 里换一个。
 - Wish 的每次特化会产生一次额外的模型请求。
-- `/yee-config` 与 Wish 浮窗需要 TUI 交互模式；`/ask` 在 TUI、RPC 和 print 模式下都能用。
+- `/yee-config`、Wish 浮窗和 `$` 补全需要 TUI 交互模式；`/ask` 在 TUI、RPC 和 print 模式下都能用。
+- Browser 依赖 `chrome-devtools-mcp`（安装后约 18 MB），官方只保证支持 Chrome 和 Chrome for Testing。升级 `chrome-devtools-mcp` 时先跑 `npm test` 和 `npm run test:e2e`，再实际连一次浏览器。
+- 上游重启或重连后 pageId 会变；会话里同时存 URL 和标题用于恢复。
+- chrome-devtools-mcp 不会出现在 Pi 的 `/mcp` 面板里，用 `/browser status` 看连接状态。
 
 ## 开发
 
 ```bash
 npm install
-npm test          # tsc --noEmit + 单元测试
+npm test          # tsc --noEmit + 单元测试（浏览器部分不需要 Chrome）
+npm run test:e2e  # 真实 chrome-devtools-mcp + 无头 Chrome（没有 Chrome 就跳过）
 pi -e .           # 本地加载
 ```
 
@@ -261,8 +356,9 @@ extensions/yee-stack/
 ├── shortcut.ts            # 快捷键校验 / 显示 / 冲突检测
 ├── features/
 │   ├── wish/              # /wish、浮窗、提示词、Wish 标签
-│   └── ask/               # /ask、工具策略、提示词分区、Ask 标签
-└── ui/                    # 配置页、模型选择、快捷键录入、勾选列表
+│   ├── ask/               # /ask、工具策略、提示词分区、Ask 标签
+│   └── browser/           # /browser、$ 补全、MCP 引擎、browser_* 工具、Browser 标签
+└── ui/                    # 配置页、模型选择、快捷键录入、勾选列表、文本输入
 ```
 
 新增一个功能 = 在 `features/` 下加一个目录，返回 `{ id, tab }`，并在 `index.ts` 里注册。

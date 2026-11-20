@@ -25,6 +25,10 @@ export interface FakePi {
 	commands: Map<string, { description?: string; handler: (args: string, ctx: any) => Promise<void> }>;
 	shortcuts: Map<string, { description?: string; handler: (ctx: any) => unknown }>;
 	flags: Map<string, { type: string; default?: unknown }>;
+	/** Tools registered by extensions, by name. */
+	toolDefs: Map<string, any>;
+	/** Message renderers registered by extensions, by custom type. */
+	messageRenderers: Map<string, any>;
 	/** Custom entries written with pi.appendEntry (session-entry shaped). */
 	entries: Array<{ type: "custom"; customType: string; data: unknown }>;
 	sentMessages: Array<{ text: string; options: unknown }>;
@@ -47,6 +51,8 @@ export function createFakePi(options: { tools?: FakeTool[]; active?: string[] } 
 		commands: new Map(),
 		shortcuts: new Map(),
 		flags: new Map(),
+		toolDefs: new Map(),
+		messageRenderers: new Map(),
 		entries: [],
 		sentMessages: [],
 		setActiveCalls: [],
@@ -75,6 +81,15 @@ export function createFakePi(options: { tools?: FakeTool[]; active?: string[] } 
 		registerFlag(name: string, opts: { type: string; default?: unknown }) {
 			fake.flags.set(name, opts);
 		},
+		registerTool(def: any) {
+			fake.toolDefs.set(def.name, def);
+			const exposure = def.exposure ?? "direct";
+			fake.tools.push({ name: def.name, description: def.description, exposure, annotations: def.annotations });
+			if (def.defaultActive !== false && (exposure === "direct" || exposure === "model-only")) active.push(def.name);
+		},
+		registerMessageRenderer(customType: string, renderer: any) {
+			fake.messageRenderers.set(customType, renderer);
+		},
 		getFlag(name: string) {
 			return name in fake.flagValues ? fake.flagValues[name] : fake.flags.get(name)?.default;
 		},
@@ -101,6 +116,13 @@ export interface FakeCtx {
 	notifications: Array<{ message: string; type?: string }>;
 	status: Map<string, string | undefined>;
 	editorText: { value: string };
+	/** ui.addAutocompleteProvider factories, in order. */
+	autocompleteFactories: Array<(current: any) => any>;
+	/** The provider built from the last registered factory. */
+	autocompleteProvider: any;
+	selectCalls: Array<{ title: string; options: string[] }>;
+	selectAnswers: string[];
+	widgets: Map<string, unknown>;
 	setBranch(entries: unknown[]): void;
 	setIdle(idle: boolean): void;
 }
@@ -118,6 +140,32 @@ export function createFakeCtx(options: { mode?: string; hasUI?: boolean } = {}):
 	const notifications: FakeCtx["notifications"] = [];
 	const status = new Map<string, string | undefined>();
 	const editorText = { value: "" };
+	const autocompleteFactories: FakeCtx["autocompleteFactories"] = [];
+	const selectCalls: FakeCtx["selectCalls"] = [];
+	const selectAnswers: string[] = [];
+	const widgets = new Map<string, unknown>();
+	const baseProvider = {
+		getSuggestions: async () => null,
+		applyCompletion: (lines: string[], cursorLine: number, cursorCol: number) => ({ lines, cursorLine, cursorCol }),
+		shouldTriggerFileCompletion: () => true,
+	};
+	const fakeCtx: FakeCtx = {
+		ctx: undefined as unknown as ExtensionContext,
+		notifications,
+		status,
+		editorText,
+		autocompleteFactories,
+		autocompleteProvider: undefined,
+		selectCalls,
+		selectAnswers,
+		widgets,
+		setBranch: (entries) => {
+			branch = entries;
+		},
+		setIdle: (value) => {
+			idle = value;
+		},
+	};
 
 	const ctx = {
 		mode: options.mode ?? "tui",
@@ -129,20 +177,23 @@ export function createFakeCtx(options: { mode?: string; hasUI?: boolean } = {}):
 			setStatus: (key: string, text: string | undefined) => void status.set(key, text),
 			setEditorText: (text: string) => void (editorText.value = text),
 			getEditorText: () => editorText.value,
+			select: async (title: string, options: string[]) => {
+				selectCalls.push({ title, options });
+				return selectAnswers.shift();
+			},
+			confirm: async () => true,
+			setWidget: (key: string, content: unknown) => {
+				if (content === undefined) widgets.delete(key);
+				else widgets.set(key, content);
+			},
+			addAutocompleteProvider: (factory: (current: any) => any) => {
+				autocompleteFactories.push(factory);
+				fakeCtx.autocompleteProvider = factory(baseProvider);
+			},
 		},
 		sessionManager: { getBranch: () => branch },
 	};
 
-	return {
-		ctx: ctx as unknown as ExtensionContext,
-		notifications,
-		status,
-		editorText,
-		setBranch: (entries) => {
-			branch = entries;
-		},
-		setIdle: (value) => {
-			idle = value;
-		},
-	};
+	fakeCtx.ctx = ctx as unknown as ExtensionContext;
+	return fakeCtx;
 }
