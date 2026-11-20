@@ -7,7 +7,7 @@
  */
 
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -113,6 +113,11 @@ try {
 		shot.result.content.some((block) => block.type === "image"),
 		"the screenshot came back as an image",
 	);
+	const screenshotPath = shot.text.match(/\[截图文件：(.+?)\]/)?.[1];
+	assert.ok(screenshotPath, "the text reports the screenshot file");
+	assert.ok(existsSync(screenshotPath));
+	assert.ok(statSync(screenshotPath).size > 0);
+	rmSync(screenshotPath, { force: true });
 
 	const tabs = await run("browser_tabs");
 	assert.match(tabs.text, /clicked:akiro/);

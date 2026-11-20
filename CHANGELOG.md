@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3] - 2026-11-20
+
+### 新增
+
+- `/browser on <地址>` 和 `/browser launch` 连接成功后会写回 `yee-stack.json`；之后每次 `/browser on` 直接复用上次保存的连接方式和地址。
+- `browser_screenshot` 会把截图写到临时文件，并在文本结果里追加 `[截图文件：…]`。codemode 模式丢弃图像块时，可以用该路径配合 `read` + `image()` 查看截图；同时给工具加了对应提示。
+
 ## [0.4.2] - 2026-11-20
 
 ### 变更

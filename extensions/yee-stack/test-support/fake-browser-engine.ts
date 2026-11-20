@@ -24,6 +24,8 @@ export class FakeBrowserEngine implements BrowserEngineLike {
 	startOptions: Array<{ restart?: boolean }> = [];
 	stopCalls = 0;
 	result: CallToolResult = { content: [{ type: "text", text: "ok" }] };
+	/** When set, start() throws instead of connecting. */
+	startError: Error | undefined;
 
 	readonly roots: string[] = [];
 	retainCount = 0;
@@ -60,6 +62,11 @@ export class FakeBrowserEngine implements BrowserEngineLike {
 		this.startCalls.push(config);
 		this.startOptions.push(options);
 		this.roots.push(...roots);
+		if (this.startError) {
+			this.state = "error";
+			this.emit();
+			throw this.startError;
+		}
 		this.state = "connected";
 		this.epoch += 1;
 		this.emit();

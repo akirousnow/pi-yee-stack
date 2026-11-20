@@ -18,7 +18,7 @@
 从 GitHub 安装：
 
 ```bash
-pi install git:github.com/akirousnow/pi-yee-stack@v0.4.2
+pi install git:github.com/akirousnow/pi-yee-stack@v0.4.3
 ```
 
 然后在 Pi 里重新加载：
@@ -46,7 +46,7 @@ pi install ./pi-yee-stack
 ```bash
 pi list                                   # 找到旧包的来源
 pi remove git:github.com/akirousnow/pi-wish-specializer@v0.2.0   # 以 pi list 显示的为准
-pi install git:github.com/akirousnow/pi-yee-stack@v0.4.2
+pi install git:github.com/akirousnow/pi-yee-stack@v0.4.3
 ```
 
 你原来的设置不会丢：首次运行时，`~/.pi/agent/wish-specializer.json` 里的模型、风格、快捷键会被自动导入（旧文件原样保留，不会被修改或删除），第一次在 `/yee-config` 里改动后才会写入新的 `yee-stack.json`。`/wish-config` 仍然可用，会直接打开配置页的 Wish 标签。
@@ -226,8 +226,8 @@ Chrome 136 起，默认 profile 会忽略 `--remote-debugging-port`。想连日�
 | 命令 | 效果 |
 |---|---|
 | `/browser` | 未连接时连接；已连接时弹出 tab 选择框（最后一项是断开） |
-| `/browser on [地址]` | 连接；带地址时按「指定地址」连 |
-| `/browser launch` | 启动一个独立 profile 的 Chrome 并连接 |
+| `/browser on [地址]` | 连接；带地址时按「指定地址」连，成功后保存，下次 `/browser on` 直接复用 |
+| `/browser launch` | 启动一个独立 profile 的 Chrome 并连接，成功后保存为默认连接方式 |
 | `/browser off` | 断开 |
 | `/browser status` | 连接方式、版本、pid、tab 数、当前 tab、激活的工具 |
 | `/browser tabs` | 列出 tab |
@@ -260,6 +260,7 @@ Chrome 136 起，默认 profile 会忽略 `--remote-debugging-port`。想连日�
 | `browser_upload` | 给 file input 设置文件（限当前项目目录） | |
 
 - 工具只在连接期间激活，断开即移除。`browser_new_tab` 默认 `background: true`，新 tab 不会带到前台；需要前台时传 `background: false`。
+- `browser_screenshot` 除了返回图像块，还会把图写到临时文件，并在文本里给出路径。codemode 模式会丢掉图像块，这时用文本里的路径配合 `read` + `image()` 看图。
 - 操作类工具默认带 `includeSnapshot`，但只回传**新增或变化的元素**（uid 稳定，新元素用新一代前缀）；导航后自动回整页。
 - 描述和参数是重写过的，15 个工具约 2.2k token，而不是上游 33 个的 7–8k。
 - 不提供 `filePath` 这类会写文件的参数；快照过长时中间截断，全文存到临时文件并把路径告诉模型。

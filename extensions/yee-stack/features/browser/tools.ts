@@ -135,6 +135,12 @@ function stripPageList(text: string): string {
 	return (index === -1 ? text : lines.slice(0, index).join("\n")).trim();
 }
 
+function imageExtension(mimeType: string): string {
+	if (/png/i.test(mimeType)) return ".png";
+	if (/webp/i.test(mimeType)) return ".webp";
+	return ".jpg";
+}
+
 async function saveOutput(data: string | Uint8Array, extension: string): Promise<string> {
 	const dir = join(tmpdir(), "yee-browser");
 	await mkdir(dir, { recursive: true });
@@ -221,7 +227,8 @@ const specs: ToolSpec[] = [
 		name: "browser_screenshot",
 		upstream: "take_screenshot",
 		label: "Browser Screenshot",
-		description: "Screenshot of the viewport, or of one element when uid is given. JPEG, at most 1280px wide.",
+		description:
+			"Screenshot of the viewport, or of one element when uid is given. JPEG, at most 1280px wide. The result also reports the image's temp file path.",
 		snippet: "Screenshot a browser tab",
 		readOnly: true,
 		needsPage: true,
@@ -508,6 +515,22 @@ const specs: ToolSpec[] = [
 	},
 ];
 
+/** Per-tool model guidance, included while the tool is active. */
+function guidelinesFor(name: string): string[] | undefined {
+	if (name === "browser_snapshot") {
+		return [
+			"Use browser_snapshot before browser_click, browser_fill or browser_press; uids come from the latest snapshot and expire after the page changes.",
+			"Use browser_tabs when the user mentions a tab that is not the current one.",
+		];
+	}
+	if (name === "browser_screenshot") {
+		return [
+			"browser_screenshot returns an image block in a normal tool call. In codemode mode only the text survives, so use the temp file path it reports with read and image() to view the screenshot.",
+		];
+	}
+	return undefined;
+}
+
 export interface BrowserToolDefinition extends ToolDefinition {
 	/** The chrome-devtools-mcp tool this one forwards. */
 	upstream: string;
@@ -523,13 +546,7 @@ export function createBrowserTools(deps: BrowserToolDeps): BrowserToolDefinition
 			upstream: spec.upstream,
 			readOnly: spec.readOnly,
 			promptSnippet: spec.snippet,
-			promptGuidelines:
-				spec.name === "browser_snapshot"
-					? [
-							"Use browser_snapshot before browser_click, browser_fill or browser_press; uids come from the latest snapshot and expire after the page changes.",
-							"Use browser_tabs when the user mentions a tab that is not the current one.",
-						]
-					: undefined,
+			promptGuidelines: guidelinesFor(spec.name),
 			parameters: spec.parameters,
 			defaultActive: false,
 			executionMode: "sequential",
@@ -590,6 +607,12 @@ export function createBrowserTools(deps: BrowserToolDeps): BrowserToolDefinition
 					text = stripPageList(text);
 				}
 				if (limited.fullOutputPath) text += `\n[完整输出：${limited.fullOutputPath}]`;
+				if (!result.isError && spec.name === "browser_screenshot" && images.length > 0) {
+					const paths = await Promise.all(
+						images.map((image) => saveOutput(Buffer.from(image.data, "base64"), imageExtension(image.mimeType))),
+					);
+					text += `\n[截图文件：${paths.join("，")}]`;
+				}
 				if (result.isError) text = `错误：${errorOf(result)}`;
 
 				return {

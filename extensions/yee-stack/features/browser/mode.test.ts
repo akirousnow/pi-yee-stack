@@ -101,6 +101,34 @@ try {
 		assert.equal(engine.startCalls.length, 0);
 	}
 
+	// ── a one-shot connection is remembered ───────────────────────────────
+	{
+		const { fake, store, engine, c } = setup();
+		await fake.commands.get("browser")!.handler("on http://127.0.0.1:9222", c.ctx);
+		assert.equal(store.get().browser.connect, "url");
+		assert.equal(store.get().browser.endpoint, "http://127.0.0.1:9222");
+		assert.match(c.notifications.at(-1)!.message, /连接设置已保存/);
+
+		// The next /browser on without an argument reuses the saved endpoint.
+		await fake.commands.get("browser")!.handler("on", c.ctx);
+		assert.equal(engine.startCalls.at(-1)?.connect, "url");
+		assert.equal(engine.startCalls.at(-1)?.endpoint, "http://127.0.0.1:9222");
+	}
+	{
+		const { fake, store, c } = setup();
+		await fake.commands.get("browser")!.handler("launch", c.ctx);
+		assert.equal(store.get().browser.connect, "launch");
+	}
+	{
+		// A failed connection does not overwrite the saved settings.
+		const { fake, store, engine, c } = setup();
+		engine.startError = new Error("boom");
+		await fake.commands.get("browser")!.handler("on http://bad:9222", c.ctx);
+		assert.equal(store.get().browser.connect, "auto");
+		assert.equal(store.get().browser.endpoint, null);
+		assert.match(c.notifications.at(-1)!.message, /连接失败/);
+	}
+
 	// ── /browser on ───────────────────────────────────────────────────────
 	{
 		const { fake, engine, c, feature } = setup();

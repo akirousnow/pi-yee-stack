@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import type { CallToolResult } from "@earendil-works/pi-mcp";
 import { FakeBrowserEngine } from "../../test-support/fake-browser-engine.ts";
 import type { PageInfo } from "./tabs.ts";
@@ -59,6 +60,11 @@ function setup() {
 		assert.notEqual(byName.get(name)?.annotations?.readOnlyHint, true, `${name} is not read-only`);
 	}
 	assert.equal(byName.get("browser_snapshot")?.executionMode, "sequential");
+	assert.match(
+		byName.get("browser_screenshot")?.promptGuidelines?.[0] ?? "",
+		/codemode/,
+		"the screenshot tool explains the codemode fallback",
+	);
 }
 
 // ── default page and argument rewriting ──────────────────────────────────
@@ -210,6 +216,13 @@ uid=1_0 RootWebArea "Form" url="https://example.com/form"
 	assert.equal(shot.content[1]?.type, "image");
 	assert.equal(shot.content[1]?.mimeType, "image/jpeg");
 	assert.deepEqual(engine.calls.at(-1)?.args, { pageId: 3, fullPage: true });
+
+	// codemode drops image blocks, so the text must point at a real file.
+	const screenshotPath = shot.content[0]!.text!.match(/\[截图文件：(.+?)\]/)?.[1];
+	assert.ok(screenshotPath, "the screenshot path is in the text");
+	assert.ok(existsSync(screenshotPath));
+	assert.ok(readFileSync(screenshotPath).length > 0);
+	rmSync(screenshotPath, { force: true });
 }
 
 // ── a disconnected engine is reported, not thrown ────────────────────────

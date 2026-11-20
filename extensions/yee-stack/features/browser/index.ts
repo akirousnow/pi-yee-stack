@@ -87,6 +87,23 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 
 	const browser = () => store.get().browser;
 
+	/** Remember a successful one-shot connection so the next /browser on reuses it. */
+	function persistConnection(ctx: ExtensionContext, patch: Partial<BrowserConfig>): void {
+		const current = browser();
+		const changed =
+			(patch.connect !== undefined && patch.connect !== current.connect) ||
+			(patch.endpoint !== undefined && patch.endpoint !== current.endpoint);
+		if (!changed) return;
+		try {
+			store.update((draft) => {
+				draft.browser = { ...draft.browser, ...patch };
+			});
+			ctx.ui.notify("连接设置已保存，下次 /browser on 会直接使用", "info");
+		} catch (error) {
+			ctx.ui.notify(`连接设置保存失败：${error instanceof Error ? error.message : String(error)}`, "warning");
+		}
+	}
+
 	// ── tools ─────────────────────────────────────────────────────────────
 
 	const tools = createBrowserTools({
@@ -377,12 +394,17 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 					if (engine.state === "connected") await pickTab(ctx, "");
 					else await startBrowser(ctx);
 					return;
-				case "on":
-					await startBrowser(ctx, tail ? { connect: "url", endpoint: tail } : {}, { restart: true });
+				case "on": {
+					const overrides: Partial<BrowserConfig> = tail ? { connect: "url", endpoint: tail } : {};
+					const connected = await startBrowser(ctx, overrides, { restart: true });
+					if (connected && tail) persistConnection(ctx, { connect: "url", endpoint: tail });
 					return;
-				case "launch":
-					await startBrowser(ctx, { connect: "launch" }, { restart: true });
+				}
+				case "launch": {
+					const connected = await startBrowser(ctx, { connect: "launch" }, { restart: true });
+					if (connected) persistConnection(ctx, { connect: "launch" });
 					return;
+				}
 				case "off":
 					await stopBrowser(ctx);
 					return;
