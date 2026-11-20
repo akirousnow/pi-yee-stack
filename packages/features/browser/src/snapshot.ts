@@ -21,7 +21,7 @@ export interface SnapshotDiff {
 	full: boolean;
 	/** New elements, as their original snapshot lines. */
 	added: string[];
-	/** Elements whose role or name changed. */
+	/** Elements whose role, name or state attributes changed. */
 	changed: string[];
 	/** Elements that disappeared. */
 	removed: number;
@@ -85,7 +85,7 @@ export class SnapshotCache {
 				added.push(element.line);
 				continue;
 			}
-			if (before.role !== element.role || before.name !== element.name) changed.push(element.line);
+			if (before.line !== element.line) changed.push(element.line);
 		}
 		if (previous) {
 			for (const uid of previous.elements.keys()) {

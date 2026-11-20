@@ -66,6 +66,7 @@ try {
 		assert.deepEqual(ids(), [
 			"browser.connect",
 			"browser.endpoint",
+			"browser.allowRemoteUpload",
 			"browser.listenOnStartup",
 			"browser.focusTab",
 			"browser.allowEval",
@@ -111,6 +112,12 @@ try {
 
 		row("browser.channel").activate(host);
 		assert.equal(store.get().browser.channel, "beta");
+
+		row("browser.connect").activate(host); // auto → url
+		assert.equal(store.get().browser.allowRemoteUpload, false, "remote upload is off by default");
+		row("browser.allowRemoteUpload").activate(host);
+		assert.equal(store.get().browser.allowRemoteUpload, true);
+		assert.match(notifications.at(-1)!.text, /允许向远程 Chrome 上传/);
 	}
 
 	// ── endpoint and executable text inputs ──────────────────────────────

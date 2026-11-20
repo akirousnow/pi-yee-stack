@@ -55,6 +55,8 @@ export interface BrowserConfig {
 	focusTab: boolean;
 	/** Allow page JavaScript evaluation in chrome-devtools-mcp. */
 	allowEval: boolean;
+	/** Allow `browser_upload` when connected to a remote Chrome (host path checks are skipped upstream). */
+	allowRemoteUpload: boolean;
 	/** Shortcut key id, or `null` for none. */
 	shortcut: string | null;
 }
@@ -93,6 +95,7 @@ export function defaultConfig(): YeeConfig {
 			listenOnStartup: false,
 			focusTab: false,
 			allowEval: false,
+			allowRemoteUpload: false,
 			shortcut: DEFAULT_BROWSER_SHORTCUT,
 		},
 	};
@@ -181,6 +184,7 @@ export function normalizeConfig(raw: unknown): YeeConfig {
 			listenOnStartup: browser.listenOnStartup === true,
 			focusTab: browser.focusTab === true,
 			allowEval: browser.allowEval === true,
+			allowRemoteUpload: browser.allowRemoteUpload === true,
 			shortcut: readShortcut(browser, DEFAULT_BROWSER_SHORTCUT),
 		},
 	};

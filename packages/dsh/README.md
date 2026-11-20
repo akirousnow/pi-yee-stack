@@ -54,6 +54,7 @@ dsh --profile <name>
       headless: auto       # auto / on / off
       profileDir: ''       # connect=launch 时的用户数据目录
       allowEval: false     # 允许页面里执行 JavaScript
+      allowRemoteUpload: false  # 允许向远程 Chrome 上传文件（绕过本机项目目录校验）
       listenOnStartup: false
 ```
 

@@ -74,6 +74,44 @@ const cache = new SnapshotCache();
 	assert.equal(diff.full, true);
 }
 
+// ── form state changes on the same uid are reported ──────────────────────
+{
+	const FORM_BEFORE = `uid=1_0 RootWebArea "Settings" url="https://example.com/settings"
+  uid=1_1 textbox "用户名"
+  uid=1_2 checkbox "记住我"
+  uid=1_3 combobox "语言" value="中文"
+  uid=1_4 button "高级" expandable`;
+	const FORM_CHECKED = `uid=1_0 RootWebArea "Settings" url="https://example.com/settings"
+  uid=1_1 textbox "用户名"
+  uid=1_2 checkbox "记住我" checked
+  uid=1_3 combobox "语言" value="中文"
+  uid=1_4 button "高级" expandable`;
+	const FORM_FILLED = `uid=1_0 RootWebArea "Settings" url="https://example.com/settings"
+  uid=1_1 textbox "用户名" value="akiro"
+  uid=1_2 checkbox "记住我"
+  uid=1_3 combobox "语言" value="English"
+  uid=1_4 button "高级" expandable expanded`;
+
+	const formCache = new SnapshotCache();
+	assert.equal(formCache.update(7, FORM_BEFORE).full, true);
+
+	const checkedDiff = formCache.update(7, FORM_CHECKED);
+	assert.equal(checkedDiff.full, false);
+	assert.deepEqual(checkedDiff.changed, ['uid=1_2 checkbox "记住我" checked']);
+	const checkedText = formatSnapshotDiff(checkedDiff, 7);
+	assert.notEqual(checkedText, "（页面没有可见变化）");
+	assert.match(checkedText, /~ uid=1_2 checkbox "记住我" checked/);
+
+	const filledDiff = formCache.update(7, FORM_FILLED);
+	assert.equal(filledDiff.full, false);
+	assert.deepEqual(filledDiff.changed, [
+		'uid=1_1 textbox "用户名" value="akiro"',
+		'uid=1_2 checkbox "记住我"',
+		'uid=1_3 combobox "语言" value="English"',
+		'uid=1_4 button "高级" expandable expanded',
+	]);
+}
+
 // ── no change ────────────────────────────────────────────────────────────
 {
 	cache.update(3, SNAP_B);

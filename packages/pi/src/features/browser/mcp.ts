@@ -21,10 +21,12 @@ import {
 	buildServerCommand,
 	type ConnectPlan,
 	currentConnectEnv,
+	isRemoteConnectPlan,
 	planConnection,
 	pagesChanged,
 	type PageInfo,
 	parsePages,
+	parseStructuredPages,
 	SnapshotCache,
 } from "@yee-stack/browser";
 
@@ -36,6 +38,7 @@ export interface BrowserEngineLike {
 	readonly epoch: number;
 	readonly error: string | undefined;
 	readonly mode: string | undefined;
+	readonly remote: boolean;
 	readonly pid: number | undefined;
 	readonly serverVersion: string | undefined;
 	readonly snapshots: SnapshotCache;
@@ -50,7 +53,7 @@ export interface BrowserEngineLike {
 	): Promise<CallToolResult>;
 	start(config: BrowserConfig, roots?: readonly string[], options?: { restart?: boolean }): Promise<void>;
 	stop(): Promise<void>;
-	retain(owner: object): void;
+	retain(owner: object, root?: string): void;
 	release(owner: object): void;
 	addRoots(paths: readonly string[]): void;
 	subscribe(listener: () => void): () => void;
@@ -97,6 +100,7 @@ export class BrowserEngine implements BrowserEngineLike {
 	private startToken = 0;
 
 	private owners = new Set<object>();
+	private ownerRoots = new Map<object, string>();
 	private listeners = new Set<() => void>();
 	private roots = new Set<string>();
 
@@ -104,6 +108,7 @@ export class BrowserEngine implements BrowserEngineLike {
 	private _error: string | undefined;
 	private _epoch = 0;
 	private _mode: string | undefined;
+	private _remote = false;
 	private _pid: number | undefined;
 	private _serverVersion: string | undefined;
 
@@ -125,6 +130,10 @@ export class BrowserEngine implements BrowserEngineLike {
 
 	get mode(): string | undefined {
 		return this._mode;
+	}
+
+	get remote(): boolean {
+		return this._remote;
 	}
 
 	get pid(): number | undefined {
@@ -157,9 +166,29 @@ export class BrowserEngine implements BrowserEngineLike {
 
 	// ── reference counting ────────────────────────────────────────────────
 
-	retain(owner: object): void {
-		if (this.owners.has(owner)) return;
+	private effectiveRoots(): string[] {
+		const merged = new Set<string>(this.roots);
+		for (const path of this.ownerRoots.values()) merged.add(path);
+		return [...merged];
+	}
+
+	private notifyRootsChanged(): void {
+		if (this._state === "connected" && this.client) {
+			void this.client.notify("notifications/roots/list_changed").catch(() => {});
+		}
+	}
+
+	retain(owner: object, root?: string): void {
+		const alreadyRetained = this.owners.has(owner);
 		this.owners.add(owner);
+		if (root) {
+			const previous = this.ownerRoots.get(owner);
+			if (previous !== root) {
+				this.ownerRoots.set(owner, root);
+				this.notifyRootsChanged();
+			}
+		}
+		if (alreadyRetained) return;
 		if (this.closeTimer) {
 			clearTimeout(this.closeTimer);
 			this.closeTimer = undefined;
@@ -167,6 +196,8 @@ export class BrowserEngine implements BrowserEngineLike {
 	}
 
 	release(owner: object): void {
+		const removedRoot = this.ownerRoots.delete(owner);
+		if (removedRoot) this.notifyRootsChanged();
 		if (!this.owners.delete(owner)) return;
 		if (this.owners.size > 0) return;
 		if (this.closeTimer) return;
@@ -178,15 +209,15 @@ export class BrowserEngine implements BrowserEngineLike {
 	}
 
 	addRoots(paths: readonly string[]): void {
+		const existing = new Set(this.effectiveRoots());
 		let changed = false;
 		for (const path of paths) {
-			if (!path || this.roots.has(path)) continue;
+			if (!path || existing.has(path)) continue;
 			this.roots.add(path);
+			existing.add(path);
 			changed = true;
 		}
-		if (changed && this._state === "connected" && this.client) {
-			void this.client.notify("notifications/roots/list_changed").catch(() => {});
-		}
+		if (changed) this.notifyRootsChanged();
 	}
 
 	// ── connection ────────────────────────────────────────────────────────
@@ -227,7 +258,7 @@ export class BrowserEngine implements BrowserEngineLike {
 			version: CLIENT_VERSION,
 			requestTimeoutMs: 60_000,
 			roots: () =>
-				[...this.roots].map((path) => ({
+				this.effectiveRoots().map((path) => ({
 					uri: pathToFileURL(path).href,
 					name: path,
 				})),
@@ -254,6 +285,7 @@ export class BrowserEngine implements BrowserEngineLike {
 			this._serverVersion = client.serverInfo?.version;
 			this._pid = transport.pid;
 			this._mode = plan.mode;
+			this._remote = isRemoteConnectPlan(plan);
 
 			const result = await client.callTool("list_pages", {}, { timeoutMs: START_TIMEOUT_MS });
 			if (result.isError) throw new Error(errorText(result));
@@ -261,6 +293,7 @@ export class BrowserEngine implements BrowserEngineLike {
 			if (!pages) throw new Error("无法解析 list_pages 的结果");
 
 			this._epoch += 1;
+			this.snapshots.clear();
 			this.pageList = pages;
 			this.pagesAt = Date.now();
 			this.setState("connected");
@@ -271,6 +304,7 @@ export class BrowserEngine implements BrowserEngineLike {
 			if (this.client === client) this.client = undefined;
 			if (this.transport === transport) this.transport = undefined;
 			this._pid = undefined;
+			this._remote = false;
 			if (token === this.startToken) {
 				this.fail(details && !message(error).includes(details) ? `${message(error)}\n${details}` : message(error));
 			}
@@ -289,9 +323,11 @@ export class BrowserEngine implements BrowserEngineLike {
 		this.transport = undefined;
 		this._pid = undefined;
 		this._mode = undefined;
+		this._remote = false;
 		this.toolList = new Map();
 		this.pageList = [];
 		this.pagesAt = 0;
+		this.snapshots.clear();
 		this._epoch += 1;
 		this.stopRefreshTimer();
 		this.fail(text);
@@ -330,8 +366,10 @@ export class BrowserEngine implements BrowserEngineLike {
 			this.toolList = new Map();
 			this.pageList = [];
 			this.pagesAt = 0;
+			this.snapshots.clear();
 			this._pid = undefined;
 			this._mode = undefined;
+			this._remote = false;
 			this._error = undefined;
 			this._epoch += 1;
 			this.setState("idle");
@@ -413,8 +451,8 @@ export class BrowserEngine implements BrowserEngineLike {
 		} finally {
 			this.activeCalls -= 1;
 		}
-		const pages = parsePages(result);
-		if (pages) this.setPages(pages);
+		const pages = parseStructuredPages(result);
+		if (pages && pages.length > 0) this.setPages(pages);
 		return result;
 	}
 }

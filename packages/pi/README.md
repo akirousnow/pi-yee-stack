@@ -261,7 +261,7 @@ Chrome 136 起，默认 profile 会忽略 `--remote-debugging-port`。想连日�
 | `browser_fill` / `browser_fill_form` | 填一个 / 批量填表单 | |
 | `browser_type` / `browser_press` | 键盘输入 / 按键 | |
 | `browser_dialog` | 处理 alert / confirm / prompt | |
-| `browser_upload` | 给 file input 设置文件（限当前项目目录） | |
+| `browser_upload` | 给 file input 设置文件（本地限当前项目目录；远程需开启 `allowRemoteUpload`） | |
 
 - 工具只在连接期间激活，断开即移除。`browser_new_tab` 默认 `background: true`，新 tab 不会带到前台；需要前台时传 `background: false`。
 - `browser_screenshot` 除了返回图像块，还会把图写到临时文件，并在文本里给出路径。codemode 模式会丢掉图像块，这时用文本里的路径配合 `read` + `image()` 看图。
@@ -311,6 +311,7 @@ chrome-devtools-mcp 默认关闭 JavaScript 求值（`--no-javascript-evaluation
     "listenOnStartup": false,
     "focusTab": false,
     "allowEval": false,
+    "allowRemoteUpload": false,
     "shortcut": null
   }
 }

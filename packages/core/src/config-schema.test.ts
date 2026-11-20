@@ -55,6 +55,7 @@ assert.equal(defaultConfig().browser.headless, "auto");
 assert.equal(defaultConfig().browser.focusTab, false);
 assert.equal(defaultConfig().browser.listenOnStartup, false);
 assert.equal(defaultConfig().browser.allowEval, false);
+assert.equal(defaultConfig().browser.allowRemoteUpload, false);
 assert.equal(defaultConfig().browser.shortcut, null);
 
 const browser = normalizeConfig({
@@ -68,6 +69,7 @@ const browser = normalizeConfig({
 		listenOnStartup: true,
 		focusTab: false,
 		allowEval: true,
+		allowRemoteUpload: true,
 		shortcut: " F7 ",
 	},
 });
@@ -81,6 +83,7 @@ assert.deepEqual(browser.browser, {
 	listenOnStartup: true,
 	focusTab: false,
 	allowEval: true,
+	allowRemoteUpload: true,
 	shortcut: "f7",
 });
 
@@ -95,6 +98,7 @@ const junkBrowser = normalizeConfig({
 		listenOnStartup: "yes",
 		focusTab: "no",
 		allowEval: 1,
+		allowRemoteUpload: "yes",
 		shortcut: "z",
 	},
 });

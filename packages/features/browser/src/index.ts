@@ -14,3 +14,4 @@ export * from "./prompt.ts";
 export * from "./tabs.ts";
 export * from "./snapshot.ts";
 export * from "./args.ts";
+export * from "./upload.ts";

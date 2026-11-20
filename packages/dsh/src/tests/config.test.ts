@@ -9,6 +9,7 @@ assert.ok(resolved.ask.section.includes("Ask mode is ON"));
 assert.equal(resolved.browser.connect, "auto");
 assert.equal(resolved.browser.channel, "stable");
 assert.equal(resolved.browser.allowEval, false);
+assert.equal(resolved.browser.allowRemoteUpload, false);
 assert.equal(resolved.browser.listenOnStartup, false);
 
 const custom = resolveConfig({ wish: { tier: "heavy" }, ask: { extraTools: ["web_search"] }, browser: { connect: "url", endpoint: " http://127.0.0.1:9222 " } });
@@ -21,6 +22,7 @@ assert.equal(browser.endpoint, "http://127.0.0.1:9222");
 assert.equal(browser.executable, null);
 assert.equal(browser.profileDir, null);
 assert.equal(browser.focusTab, false);
+assert.equal(browser.allowRemoteUpload, false);
 assert.equal(browser.shortcut, null);
 
 const text = describeConfig(resolved);

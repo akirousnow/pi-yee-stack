@@ -17,12 +17,16 @@ import { randomUUID } from "node:crypto";
 import type { ContentBlock } from "@deepseek-ai/dsh-llm";
 import { defineTool, type ToolDefinition, type ToolRunContext } from "@deepseek-ai/dsh-tools";
 import {
+	authorizeUploadPaths,
 	formatSnapshotDiff,
 	formatTabList,
+	hasStructuredOpenedPages,
 	type PageInfo,
 	parsePages,
+	parseStructuredPages,
 	parseTabRef,
 	SnapshotCache,
+	stripPageList,
 	tabRef,
 } from "@yee-stack/browser";
 import type { McpToolResult } from "./mcp.ts";
@@ -49,6 +53,14 @@ export interface BrowserToolDeps {
 	current(): number | undefined;
 	/** Make a tab current (used by `browser_tabs`). */
 	setCurrent(pageId: number | undefined): void;
+	/** Whether the active Chrome connection targets a remote endpoint. */
+	remote?(): boolean;
+	/** Whether `browser_upload` is explicitly allowed on a remote Chrome connection. */
+	allowRemoteUpload?(): boolean;
+	/** Resolve the calling session's workspace directory (defaults to `exec.agent.session.header.cwd`). */
+	workspaceDir?(exec: ToolRunContext): string | undefined;
+	/** Register a validated workspace root on the MCP client before local `upload_file`. */
+	ensureRoot?(dir: string): Promise<void> | void;
 	/** Per-page snapshot cache, for action diffs. */
 	snapshots: SnapshotCache;
 	/** Directory for screenshot files. */
@@ -311,7 +323,7 @@ const TOOLS: ToolSpec[] = [
 		name: "browser_upload",
 		upstream: "upload_file",
 		readOnly: false,
-		description: "给 file input 设置文件（路径需在项目目录内）。",
+		description: "给 file input 设置文件（本地 Chrome 仅限当前项目目录；远程 Chrome 需开启 browser.allowRemoteUpload）。",
 		parameters: {
 			uid: UID_PARAM,
 			paths: {
@@ -418,24 +430,58 @@ function buildTool(deps: BrowserToolDeps, spec: ToolSpec): ToolDefinition {
 			const input = args as Record<string, unknown>;
 			const pageId = spec.upstream === "list_pages" || spec.upstream === "new_page" ? undefined : requirePageId(deps, input.page);
 			const upstreamArgs = spec.args(input, pageId);
+			if (spec.upstream === "upload_file") {
+				const remote = deps.remote?.() === true;
+				const workspaceDir = deps.workspaceDir ? deps.workspaceDir(exec) : exec.agent?.session?.header?.cwd;
+				upstreamArgs.filePaths = await authorizeUploadPaths({
+					filePaths: Array.isArray(upstreamArgs.filePaths) ? (upstreamArgs.filePaths as string[]) : [],
+					workspaceDir,
+					remote,
+					allowRemoteUpload: deps.allowRemoteUpload?.() === true,
+				});
+				if (!remote && workspaceDir) await deps.ensureRoot?.(workspaceDir);
+			}
 			// Actions ask for a snapshot so the caller sees what changed; the renderer
 			// turns it into a diff.
 			if (spec.snapshot && upstreamArgs.includeSnapshot === undefined) upstreamArgs.includeSnapshot = true;
 			const result = await deps.call(spec.upstream, upstreamArgs, { signal: exec.signal });
 
-			const pages = parsePages(result);
-			if (pages) deps.setPages(pages);
+			const structuredPages = parseStructuredPages(result);
+			let pages: PageInfo[] | undefined =
+				structuredPages && structuredPages.length > 0 ? structuredPages : undefined;
+			if (pages) {
+				deps.setPages(pages);
+			} else if (spec.upstream === "list_pages" && !result.isError) {
+				pages = parsePages(result);
+				if (pages) deps.setPages(pages);
+			} else if (
+				!result.isError &&
+				(spec.upstream === "new_page" || spec.upstream === "close_page" || hasStructuredOpenedPages(result))
+			) {
+				const listed = await deps.call("list_pages", {}, { signal: exec.signal });
+				if (!listed.isError) {
+					pages = parseStructuredPages(listed) ?? parsePages(listed);
+					if (pages && pages.length > 0) deps.setPages(pages);
+				}
+			}
 
-			if (spec.upstream === "list_pages") {
+			if (spec.upstream === "list_pages" && !result.isError) {
 				return textResult(formatTabList(deps.pages(), deps.current()));
 			}
 			if (spec.upstream === "close_page" && !result.isError) {
+				const confirmedPages = pages ?? deps.pages();
+				if (pageId !== undefined && confirmedPages.some((page) => page.id === pageId)) {
+					const reason = stripPageList(errorText(result)) || `无法关闭 ${tabRef(pageId)}（该 tab 仍然存在）`;
+					throw new Error(reason);
+				}
+				if (pageId !== undefined) deps.snapshots.clear(pageId);
 				const current = deps.current();
-				if (current !== undefined && !deps.pages().some((page) => page.id === current)) deps.setCurrent(undefined);
+				if (current !== undefined && !confirmedPages.some((page) => page.id === current)) deps.setCurrent(undefined);
+				return textResult(pageId !== undefined ? `已关闭 ${tabRef(pageId)}` : "已关闭 tab");
 			}
 			if (spec.upstream === "new_page" && !result.isError) {
-				const created = parsePages(result);
-				const page = created?.find((candidate) => candidate.selected) ?? created?.[0];
+				const created = pages ?? [...deps.pages()];
+				const page = created.find((candidate) => candidate.selected) ?? created[0];
 				if (page) deps.setCurrent(page.id);
 				return textResult(`已新建 ${page ? tabRef(page.id) : "tab"}${page ? ` — ${page.title || page.url}` : ""}`);
 			}

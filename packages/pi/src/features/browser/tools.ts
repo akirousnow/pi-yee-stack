@@ -16,19 +16,37 @@ import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { type CallToolResult, limitMcpContent, toLlmContent } from "@earendil-works/pi-mcp";
 import { Type } from "typebox";
-import { formatSnapshotDiff, formatTabList, type PageInfo, parsePages, parseTabRef, tabRef } from "@yee-stack/browser";
+import {
+	authorizeUploadPaths,
+	findRecoveredPage,
+	formatSnapshotDiff,
+	formatTabList,
+	hasStructuredOpenedPages,
+	type PageInfo,
+	parsePages,
+	parseStructuredPages,
+	parseTabRef,
+	stripPageList,
+	tabRef,
+} from "@yee-stack/browser";
 import type { BrowserEngineLike } from "./mcp.ts";
 
 export interface BrowserToolDeps {
 	engine(): BrowserEngineLike;
 	/** The session's current tab. */
 	currentPage(): number | undefined;
+	/** Engine epoch when the current tab was bound, if tracked. */
+	currentEpoch?(): number | undefined;
 	/** URL/title of the current tab, for re-finding it after a reconnect. */
 	currentMeta(): { url: string; title: string } | undefined;
 	/** A new tab became the current one. */
 	setCurrentPage(pageId: number): void;
-	/** The current tab was closed. */
+	/** The current tab was closed or its binding expired. */
 	clearCurrentPage(): void;
+	/** Fallback workspace directory when ToolContext.cwd is absent. */
+	workspaceDir?(): string | undefined;
+	/** Whether `browser_upload` is explicitly allowed on a remote Chrome connection. */
+	allowRemoteUpload?(): boolean;
 }
 
 /** Upstream tools the feature forwards. Anything missing is skipped at runtime. */
@@ -63,8 +81,8 @@ interface ToolSpec {
 	build(params: Record<string, unknown>, pageId: number | undefined): Record<string, unknown>;
 	/** Replace the tool's text output. */
 	format?(result: CallToolResult, deps: BrowserToolDeps): string | undefined;
-	/** React to a successful call (new/closed tab). */
-	after?(result: CallToolResult, deps: BrowserToolDeps): void;
+	/** React to a successful call (new/closed tab) using the authoritative page list. */
+	after?(result: CallToolResult, deps: BrowserToolDeps, pages: readonly PageInfo[] | undefined): void;
 }
 
 const pageParameter = Type.Optional(
@@ -126,13 +144,6 @@ function firstActionLine(text: string): string {
 	return head || "Done";
 }
 
-/** Drop chrome-devtools-mcp's `## Pages` block from a tool result. */
-function stripPageList(text: string): string {
-	const lines = text.split(/\r?\n/);
-	const index = lines.findIndex((line) => /^##\s*Pages\s*$/i.test(line.trim()));
-	return (index === -1 ? text : lines.slice(0, index).join("\n")).trim();
-}
-
 function imageExtension(mimeType: string): string {
 	if (/png/i.test(mimeType)) return ".png";
 	if (/webp/i.test(mimeType)) return ".webp";
@@ -145,6 +156,15 @@ async function saveOutput(data: string | Uint8Array, extension: string): Promise
 	const file = join(dir, `${Date.now()}-${randomUUID()}${extension}`);
 	await writeFile(file, data);
 	return file;
+}
+
+/** The current page id only when its epoch still matches the active connection. */
+function activeCurrentPageId(engine: BrowserEngineLike, deps: BrowserToolDeps): number | undefined {
+	const current = deps.currentPage();
+	if (current === undefined) return undefined;
+	const boundEpoch = deps.currentEpoch?.();
+	if (boundEpoch !== undefined && boundEpoch !== engine.epoch) return undefined;
+	return current;
 }
 
 /** Resolve the page a call should use. */
@@ -170,17 +190,26 @@ async function resolvePageId(
 
 	const current = deps.currentPage();
 	if (current !== undefined) {
-		const page = pages.find((candidate) => candidate.id === current);
-		if (page) return page.id;
-		// The server may have restarted and renumbered pages: try URL, then title.
-		const meta = deps.currentMeta();
-		const recovered =
-			(meta?.url ? pages.find((candidate) => candidate.url === meta.url) : undefined) ??
-			(meta?.title ? pages.find((candidate) => candidate.title === meta.title) : undefined);
+		const boundEpoch = deps.currentEpoch?.();
+		const sameEpoch = boundEpoch === undefined || boundEpoch === engine.epoch;
+		if (sameEpoch) {
+			const page = pages.find((candidate) => candidate.id === current);
+			if (page) return page.id;
+		}
+		// The server reconnected (epoch changed) or the bound pageId disappeared:
+		// try to re-find the original page by URL, then title.
+		const recovered = findRecoveredPage(pages, deps.currentMeta());
 		if (recovered) {
 			deps.setCurrentPage(recovered.id);
 			return recovered.id;
 		}
+		// The previously bound tab could not be re-found: clear the stale binding
+		// and require re-selection rather than silently targeting another page.
+		deps.clearCurrentPage();
+		if (pages.length === 0) throw new Error("没有打开的 tab；用 browser_new_tab 打开一个");
+		throw new Error(
+			`之前绑定的 tab（${tabRef(current)}）已失效，请重新选页（用 page="$tN" 或 /browser use $tN）；当前 tab：${formatTabList(pages).split("\n").slice(0, 12).join(" / ")}`,
+		);
 	}
 
 	if (pages.length === 1) return pages[0]!.id;
@@ -206,7 +235,7 @@ const specs: ToolSpec[] = [
 		build: () => ({}),
 		format: (result, deps) => {
 			const pages = parsePages(result) ?? [...deps.engine().pages()];
-			return formatTabList(pages, deps.currentPage());
+			return formatTabList(pages, activeCurrentPageId(deps.engine(), deps));
 		},
 	},
 	{
@@ -287,9 +316,9 @@ const specs: ToolSpec[] = [
 				background: optionalBoolean(params, "background") ?? true,
 				timeout: optionalNumber(params, "timeout"),
 			}),
-		after: (result, deps) => {
-			const pages = parsePages(result) ?? deps.engine().pages();
-			const selected = pages.find((page) => page.selected) ?? pages[pages.length - 1];
+		after: (_result, deps, pages) => {
+			const list = pages ?? deps.engine().pages();
+			const selected = list.find((page) => page.selected) ?? list[list.length - 1];
 			if (selected) deps.setCurrentPage(selected.id);
 		},
 	},
@@ -303,10 +332,10 @@ const specs: ToolSpec[] = [
 		needsPage: true,
 		parameters: Type.Object({ page: pageParameter }),
 		build: (_params, pageId) => ({ pageId }),
-		after: (result, deps) => {
-			const pages = parsePages(result) ?? deps.engine().pages();
+		after: (_result, deps, pages) => {
+			const list = pages ?? deps.engine().pages();
 			const current = deps.currentPage();
-			if (current !== undefined && !pages.some((page) => page.id === current)) deps.clearCurrentPage();
+			if (current !== undefined && !list.some((page) => page.id === current)) deps.clearCurrentPage();
 		},
 	},
 	{
@@ -488,7 +517,8 @@ const specs: ToolSpec[] = [
 		name: "browser_upload",
 		upstream: "upload_file",
 		label: "Browser Upload",
-		description: "Set files on a file input, by snapshot uid. Paths must be inside the current project.",
+		description:
+			"Set files on a file input, by snapshot uid. Local Chrome requires paths inside the current project; remote Chrome requires browser.allowRemoteUpload.",
 		snippet: "Upload files through a file input",
 		readOnly: false,
 		needsPage: true,
@@ -549,7 +579,7 @@ export function createBrowserTools(deps: BrowserToolDeps): BrowserToolDefinition
 			defaultActive: false,
 			executionMode: "sequential",
 			annotations: spec.readOnly ? { readOnlyHint: true } : undefined,
-			async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
+			async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 				const engine = deps.engine();
 				if (engine.state !== "connected") {
 					return {
@@ -563,12 +593,36 @@ export function createBrowserTools(deps: BrowserToolDeps): BrowserToolDefinition
 				const before = new Set(engine.pages().map((page) => page.id));
 				const pageId = spec.needsPage ? await resolvePageId(engine, deps, input.page) : undefined;
 				const args = spec.build(input, pageId);
+				if (spec.name === "browser_upload") {
+					const workspaceDir = ctx?.cwd || deps.workspaceDir?.();
+					args.filePaths = await authorizeUploadPaths({
+						filePaths: args.filePaths as string[],
+						workspaceDir,
+						remote: engine.remote,
+						allowRemoteUpload: deps.allowRemoteUpload?.() === true,
+					});
+					if (!engine.remote && workspaceDir) engine.addRoots([workspaceDir]);
+				}
 				const result = await engine.call(spec.upstream, args, { signal, timeoutMs: 120_000 });
 
-				if (!result.isError) spec.after?.(result, deps);
+				const structuredPages = parseStructuredPages(result);
+				let pages: readonly PageInfo[] | undefined =
+					structuredPages && structuredPages.length > 0 ? structuredPages : undefined;
+				if (pages) {
+					engine.setPages(pages);
+				} else if (spec.name === "browser_tabs" && !result.isError) {
+					pages = parsePages(result);
+					if (pages) engine.setPages(pages);
+				} else if (
+					!result.isError &&
+					(spec.name === "browser_new_tab" || spec.name === "browser_close_tab" || hasStructuredOpenedPages(result))
+				) {
+					const refreshed = await engine.refreshPages({ force: true, timeoutMs: 8_000 });
+					if (refreshed.length > 0) pages = refreshed;
+				}
 
-				const pages = parsePages(result);
-				if (pages) engine.setPages(pages);
+				if (!result.isError) spec.after?.(result, deps, pages);
+
 				const addedTabs = newPages(before, pages);
 
 				const limited = await limitMcpContent(toLlmContent(result), saveOutput);
@@ -592,20 +646,30 @@ export function createBrowserTools(deps: BrowserToolDeps): BrowserToolDefinition
 					}
 				}
 
-				if (addedTabs.length > 0) {
+				let isError = result.isError === true;
+
+				if (spec.name === "browser_close_tab" && pageId !== undefined && !isError) {
+					const confirmedPages = pages ?? engine.pages();
+					if (confirmedPages.some((page) => page.id === pageId)) {
+						isError = true;
+						const reason = stripPageList(rawText) || `无法关闭 ${tabRef(pageId)}（该 tab 仍然存在）`;
+						text = `错误：${reason}`;
+					} else {
+						engine.snapshots.clear(pageId);
+						text = `已关闭 ${tabRef(pageId)}`;
+					}
+				} else if (addedTabs.length > 0) {
 					if (spec.name === "browser_new_tab" && addedTabs.length === 1) {
 						const opened = addedTabs[0]!;
 						text = `已打开 ${tabRef(opened.id)} ${opened.title || opened.url}`;
 					} else {
 						text += `\n新 tab：${addedTabs.map((page) => `${tabRef(page.id)} ${page.title || page.url}`).join("；")}`;
 					}
-				} else if (spec.name === "browser_close_tab" && pageId !== undefined && !result.isError) {
-					text = `已关闭 ${tabRef(pageId)}`;
-				} else if (pages && spec.name !== "browser_tabs" && !result.isError) {
+				} else if (structuredPages && structuredPages.length > 0 && spec.name !== "browser_tabs" && !isError) {
 					text = stripPageList(text);
 				}
 				if (limited.fullOutputPath) text += `\n[完整输出：${limited.fullOutputPath}]`;
-				if (!result.isError && spec.name === "browser_screenshot" && images.length > 0) {
+				if (!isError && spec.name === "browser_screenshot" && images.length > 0) {
 					const paths = await Promise.all(
 						images.map((image) => saveOutput(Buffer.from(image.data, "base64"), imageExtension(image.mimeType))),
 					);
@@ -618,8 +682,8 @@ export function createBrowserTools(deps: BrowserToolDeps): BrowserToolDefinition
 						{ type: "text" as const, text: text || "Done" },
 						...images.map((image) => ({ type: "image" as const, data: image.data, mimeType: image.mimeType })),
 					],
-					details: { pageId, epoch: engine.epoch, upstream: spec.upstream, error: result.isError === true },
-					isError: result.isError === true,
+					details: { pageId, epoch: engine.epoch, upstream: spec.upstream, error: isError },
+					isError,
 				};
 			},
 		};

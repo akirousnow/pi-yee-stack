@@ -211,6 +211,19 @@ export function createBrowserTab({ store }: BrowserTabOptions): ConfigTab {
 		},
 	};
 
+	const remoteUploadRow: ConfigRow = {
+		id: "browser.allowRemoteUpload",
+		label: "允许远程上传",
+		value: () => yesNo(browser().allowRemoteUpload),
+		description:
+			"连接到远程 Chrome 时，上游不会做工作区路径校验。默认关闭以禁止 browser_upload 访问远程主机任意文件；确认需要时再开启。",
+		activate: (host) => {
+			const next = !browser().allowRemoteUpload;
+			if (!save(host, (draft) => void (draft.browser.allowRemoteUpload = next))) return;
+			host.notify(next ? "已允许向远程 Chrome 上传文件" : "已禁止向远程 Chrome 上传文件", "success");
+		},
+	};
+
 	const evalRow: ConfigRow = {
 		id: "browser.allowEval",
 		label: "允许执行 JS",
@@ -270,7 +283,7 @@ export function createBrowserTab({ store }: BrowserTabOptions): ConfigTab {
 		rows: () => {
 			const config = browser();
 			const rows = [connectRow];
-			if (config.connect === "url") rows.push(endpointRow);
+			if (config.connect === "url") rows.push(endpointRow, remoteUploadRow);
 			else rows.push(channelRow);
 			if (config.connect === "launch") rows.push(executableRow, headlessRow, profileRow);
 			rows.push(startupRow, focusRow, evalRow, shortcutRow);

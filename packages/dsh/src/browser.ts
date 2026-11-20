@@ -16,6 +16,7 @@
 
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { Context } from "@deepseek-ai/cordis";
 import {
 	browserSectionText,
@@ -23,9 +24,11 @@ import {
 	currentConnectEnv,
 	type ConnectPlan,
 	findTabRef,
+	isRemoteConnectPlan,
 	type PageInfo,
 	pagesChanged,
 	parsePages,
+	parseStructuredPages,
 	parseTabRef,
 	planConnection,
 	SnapshotCache,
@@ -60,9 +63,17 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 	let state: State = "idle";
 	let error: string | undefined;
 	let client: McpStdioClient | undefined;
+	let remote = false;
 	let pages: PageInfo[] = [];
 	let current: number | undefined;
+	const roots = new Set<string>();
 	const snapshots = new SnapshotCache();
+
+	const ensureRoot = async (dir: string): Promise<void> => {
+		if (!dir || roots.has(dir)) return;
+		roots.add(dir);
+		if (state === "connected" && client) await client.syncRoots();
+	};
 
 	const setPages = (next: readonly PageInfo[]): void => {
 		if (!pagesChanged(pages, next)) return;
@@ -90,7 +101,15 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 			const plan: ConnectPlan = await planConnection(toBrowserConfig(settings), env);
 			if (plan.mode === "none") throw new Error(plan.reason);
 			const command = buildServerCommand(toBrowserConfig(settings), plan, env, serverBin());
-			client = await McpStdioClient.connect(command, { timeoutMs: 120_000 });
+			client = await McpStdioClient.connect(command, {
+				timeoutMs: 120_000,
+				roots: () =>
+					[...roots].map((path) => ({
+						uri: pathToFileURL(path).href,
+						name: path,
+					})),
+			});
+			remote = isRemoteConnectPlan(plan);
 			state = "connected";
 			const result = await client.callTool("list_pages", {}, { timeoutMs: 60_000 });
 			const parsed = parsePages(result);
@@ -102,6 +121,7 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 			error = message(cause);
 			await client?.close().catch(() => {});
 			client = undefined;
+			remote = false;
 			throw new Error(error);
 		}
 	}
@@ -109,10 +129,12 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 	async function disconnect(): Promise<void> {
 		await client?.close().catch(() => {});
 		client = undefined;
+		remote = false;
 		state = "idle";
 		error = undefined;
 		pages = [];
 		current = undefined;
+		roots.clear();
 		snapshots.clear();
 	}
 
@@ -120,8 +142,8 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 		call: async (name, args, callOptions) => {
 			if (!client || state !== "connected") throw new Error("浏览器未连接：先执行 /browser on");
 			const result = await client.callTool(name, args, { signal: callOptions?.signal });
-			const parsed = parsePages(result);
-			if (parsed) setPages(parsed);
+			const parsed = parseStructuredPages(result);
+			if (parsed && parsed.length > 0) setPages(parsed);
 			return result;
 		},
 		pages: () => pages,
@@ -130,6 +152,9 @@ export async function registerBrowser(ctx: Context, options: BrowserOptions): Pr
 		setCurrent: (pageId) => {
 			current = pageId;
 		},
+		remote: () => remote,
+		allowRemoteUpload: () => options.allowRemoteUpload,
+		ensureRoot,
 		snapshots,
 	});
 	for (const tool of tools) {

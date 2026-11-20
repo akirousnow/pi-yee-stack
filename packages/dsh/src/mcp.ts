@@ -41,6 +41,11 @@ export interface McpServerCommand {
 	env: Record<string, string>;
 }
 
+export interface McpRoot {
+	uri: string;
+	name?: string;
+}
+
 const CLIENT_NAME = "yee-stack-dsh";
 const CLIENT_VERSION = "0.5.0";
 const PROTOCOL_VERSION = "2025-06-18";
@@ -59,6 +64,8 @@ function message(error: unknown): string {
 export class McpStdioClient {
 	private readonly child: ChildProcess;
 	private readonly pending = new Map<number, Pending>();
+	private readonly rootsProvider?: () => McpRoot[];
+	private rootSyncWaiters: Array<() => void> = [];
 	private nextId = 1;
 	private buffer = "";
 	private closed = false;
@@ -68,8 +75,9 @@ export class McpStdioClient {
 	serverVersion: string | undefined;
 	pid: number | undefined;
 
-	private constructor(child: ChildProcess) {
+	private constructor(child: ChildProcess, rootsProvider?: () => McpRoot[]) {
 		this.child = child;
+		this.rootsProvider = rootsProvider;
 		this.pid = child.pid;
 		child.stdout?.setEncoding("utf8");
 		child.stdout?.on("data", (chunk: string) => this.onData(chunk));
@@ -82,18 +90,21 @@ export class McpStdioClient {
 	}
 
 	/** Spawn the server and complete the MCP handshake. */
-	static async connect(command: McpServerCommand, options: { timeoutMs?: number } = {}): Promise<McpStdioClient> {
+	static async connect(
+		command: McpServerCommand,
+		options: { timeoutMs?: number; roots?: () => McpRoot[] } = {},
+	): Promise<McpStdioClient> {
 		const child = spawn(command.command, command.args, {
 			env: { ...process.env, ...command.env },
 			stdio: ["pipe", "pipe", "pipe"],
 		});
-		const client = new McpStdioClient(child);
+		const client = new McpStdioClient(child, options.roots);
 		try {
 			await client.request(
 				"initialize",
 				{
 					protocolVersion: PROTOCOL_VERSION,
-					capabilities: {},
+					capabilities: options.roots ? { roots: { listChanged: true } } : {},
 					clientInfo: { name: CLIENT_NAME, version: CLIENT_VERSION },
 				},
 				{ timeoutMs: options.timeoutMs ?? 30_000 },
@@ -131,9 +142,28 @@ export class McpStdioClient {
 		};
 	}
 
+	/** Tell the server that workspace roots changed and wait briefly for its `roots/list` refresh. */
+	async syncRoots(timeoutMs = 1_500): Promise<void> {
+		if (!this.rootsProvider || this.closed) return;
+		await new Promise<void>((resolve) => {
+			let settled = false;
+			const finish = () => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timer);
+				resolve();
+			};
+			const timer = setTimeout(finish, timeoutMs);
+			timer.unref?.();
+			this.rootSyncWaiters.push(finish);
+			this.notify("notifications/roots/list_changed", {});
+		});
+	}
+
 	async close(): Promise<void> {
 		if (this.closed) return;
 		this.closed = true;
+		this.flushRootSyncWaiters();
 		this.failAll(new Error("MCP 连接已关闭"));
 		try {
 			this.child.stdin?.end();
@@ -230,6 +260,22 @@ export class McpStdioClient {
 		if (typeof parsed !== "object" || parsed === null) return;
 		const record = parsed as Record<string, unknown>;
 
+		// Server-initiated request or notification: handle before response lookup,
+		// because server requests also carry numeric JSON-RPC ids.
+		if (typeof record.method === "string") {
+			if (record.id !== undefined) {
+				const result = record.method === "roots/list" ? { roots: this.rootsProvider?.() ?? [] } : {};
+				const reply = { jsonrpc: "2.0", id: record.id, result };
+				try {
+					this.child.stdin?.write(`${JSON.stringify(reply)}\n`);
+				} catch {
+					// ignore
+				}
+				if (record.method === "roots/list") this.flushRootSyncWaiters();
+			}
+			return;
+		}
+
 		if (typeof record.id === "number") {
 			const entry = this.pending.get(record.id);
 			if (!entry) return;
@@ -241,23 +287,19 @@ export class McpStdioClient {
 			} else {
 				entry.resolve(record.result);
 			}
-			return;
 		}
+	}
 
-		// Server-initiated request: answer so the server never blocks.
-		if (typeof record.method === "string" && record.id !== undefined) {
-			const reply = { jsonrpc: "2.0", id: record.id, result: {} };
-			try {
-				this.child.stdin?.write(`${JSON.stringify(reply)}\n`);
-			} catch {
-				// ignore
-			}
-		}
+	private flushRootSyncWaiters(): void {
+		const waiters = this.rootSyncWaiters;
+		this.rootSyncWaiters = [];
+		for (const finish of waiters) finish();
 	}
 
 	private onExit(): void {
 		if (this.closed) return;
 		this.closed = true;
+		this.flushRootSyncWaiters();
 		this.failAll(new Error("chrome-devtools-mcp 已退出"));
 	}
 

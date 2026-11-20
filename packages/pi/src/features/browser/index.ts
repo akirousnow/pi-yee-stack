@@ -21,12 +21,21 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import type { KeyId } from "@earendil-works/pi-tui";
 import { fuzzyFilter } from "@earendil-works/pi-tui";
 import { displayShortcut, type BrowserConfig } from "@yee-stack/core";
-import { findTabRef, formatTabLine, formatTabList, type PageInfo, parseTabRef, tabRef } from "@yee-stack/browser";
+import {
+	BROWSER_SECTION_NAME,
+	browserSectionText,
+	findRecoveredPage,
+	findTabRef,
+	formatTabLine,
+	formatTabList,
+	type PageInfo,
+	parseTabRef,
+	tabRef,
+} from "@yee-stack/browser";
 import type { ConfigStore } from "../../config-store.ts";
 import type { ConfigTabFactory } from "../../ui/config-page.ts";
 import { createTabAutocompleteProvider } from "./autocomplete.ts";
 import { type BrowserEngineLike, getEngine } from "./mcp.ts";
-import { BROWSER_SECTION_NAME, browserSectionText } from "@yee-stack/browser";
 
 import { createBrowserTab } from "./tab.ts";
 import { createBrowserTools } from "./tools.ts";
@@ -82,6 +91,7 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 	let current: TabEntryData | undefined;
 	let lastCtx: ExtensionContext | undefined;
 	let unsubscribe: (() => void) | undefined;
+	let reconciling: Promise<void> | undefined;
 	let retained = false;
 	const owner = {};
 
@@ -109,6 +119,7 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 	const tools = createBrowserTools({
 		engine: () => engine,
 		currentPage: () => current?.pageId,
+		currentEpoch: () => current?.epoch,
 		currentMeta: () => (current ? { url: current.url, title: current.title } : undefined),
 		setCurrentPage: (pageId) => {
 			const page = engine.pages().find((candidate) => candidate.id === pageId);
@@ -119,6 +130,8 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 			pi.appendEntry(ENTRY_TYPE, { pageId: null });
 			updateStatus();
 		},
+		workspaceDir: () => lastCtx?.cwd,
+		allowRemoteUpload: () => browser().allowRemoteUpload,
 	});
 	const toolNames = new Set(tools.map((tool) => tool.name));
 	for (const tool of tools) pi.registerTool(tool);
@@ -141,12 +154,18 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 
 	// ── status ────────────────────────────────────────────────────────────
 
+	function activeCurrentPage(): PageInfo | undefined {
+		if (!current || engine.state !== "connected") return undefined;
+		if (current.epoch !== engine.epoch) return undefined;
+		return engine.pages().find((candidate) => candidate.id === current!.pageId);
+	}
+
 	function updateStatus(): void {
 		const ctx = lastCtx;
 		if (!ctx) return;
 		if (engine.state === "connected") {
 			const pages = engine.pages();
-			const page = current ? pages.find((candidate) => candidate.id === current!.pageId) : undefined;
+			const page = activeCurrentPage();
 			const label = page ? ` · ${tabRef(page.id)} ${truncate(page.title || page.url, TRUNCATE_TITLE)}` : "";
 			ctx.ui.setStatus(STATUS_KEY, ctx.ui.theme.fg("accent", `🌐 ${pages.length} tabs${label}`));
 			return;
@@ -177,9 +196,9 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 			lines.push(`连接方式：${engine.mode ?? "?"}`);
 			lines.push(`chrome-devtools-mcp：${engine.serverVersion ?? "?"}${engine.pid ? ` · pid ${engine.pid}` : ""}`);
 			lines.push(`tab：${pages.length} 个`);
-			if (current) {
-				const page = pages.find((candidate) => candidate.id === current!.pageId);
-				lines.push(`当前 tab：${tabRef(current.pageId)} ${page?.title || current.title || current.url}`);
+			const activePage = activeCurrentPage();
+			if (activePage) {
+				lines.push(`当前 tab：${tabRef(activePage.id)} ${activePage.title || activePage.url}`);
 			} else {
 				lines.push("当前 tab：未选择");
 			}
@@ -221,6 +240,15 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 
 	/** Page ids are per connection: re-find the tab by URL, then title, after a reconnect. */
 	async function reconcile(ctx: ExtensionContext): Promise<void> {
+		if (reconciling) return reconciling;
+		const run = doReconcile(ctx).finally(() => {
+			if (reconciling === run) reconciling = undefined;
+		});
+		reconciling = run;
+		return run;
+	}
+
+	async function doReconcile(ctx: ExtensionContext): Promise<void> {
 		const target = current;
 		if (!target || engine.state !== "connected") return;
 		if (target.epoch === engine.epoch && engine.pages().some((page) => page.id === target.pageId)) return;
@@ -228,12 +256,19 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 		if (engine.pages().length === 0) {
 			await engine.refreshPages({ force: true, timeoutMs: 8_000 }).catch(() => {});
 		}
+		if (current !== target || engine.state !== "connected") return;
+
 		const pages = engine.pages();
 		const found =
-			(target.url ? pages.find((page) => page.url === target.url) : undefined) ??
-			(target.title ? pages.find((page) => page.title === target.title) : undefined) ??
+			findRecoveredPage(pages, { url: target.url, title: target.title }) ??
 			(target.epoch === engine.epoch ? pages.find((page) => page.id === target.pageId) : undefined);
-		if (!found) return;
+		if (!found) {
+			current = undefined;
+			pi.appendEntry(ENTRY_TYPE, { pageId: null });
+			updateStatus();
+			ctx.ui.notify(`原 tab（${tabRef(target.pageId)}）已失效，请重新选择 tab`, "warning");
+			return;
+		}
 
 		current = { pageId: found.id, epoch: engine.epoch, url: found.url, title: found.title };
 		pi.appendEntry(ENTRY_TYPE, current);
@@ -262,7 +297,9 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 			if (engine.state === "idle" || engine.state === "error") {
 				ctx.ui.notify("正在连接浏览器…", "info");
 			}
-			await engine.start(config, [ctx.cwd], { restart: startOptions.restart });
+			retained = true;
+			engine.retain(owner, ctx.cwd);
+			await engine.start(config, [], { restart: startOptions.restart });
 			ensureTools();
 			updateStatus();
 			await reconcile(ctx);
@@ -310,7 +347,7 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 			return true;
 		}
 
-		const labels = pages.map((page) => formatTabLine(page, current?.pageId));
+		const labels = pages.map((page) => formatTabLine(page, activeCurrentPage()?.id));
 		const disconnect = "✕ 断开浏览器连接";
 		const choice = await ctx.ui.select("选择浏览器 tab", [...labels, disconnect]);
 		if (!choice) return true;
@@ -414,7 +451,7 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 				case "tabs":
 					ctx.ui.notify(
 						engine.state === "connected"
-							? formatTabList(engine.pages(), current?.pageId)
+							? formatTabList(engine.pages(), activeCurrentPage()?.id)
 							: "浏览器未连接：先 /browser on",
 						"info",
 					);
@@ -436,15 +473,15 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 
 	pi.on("session_start", (event, ctx) => {
 		lastCtx = ctx;
-		if (!retained) {
-			retained = true;
-			engine.retain(owner);
-		}
-		engine.addRoots([ctx.cwd]);
+		retained = true;
+		engine.retain(owner, ctx.cwd);
 		restore(ctx);
 		unsubscribe ??= engine.subscribe(() => {
 			updateStatus();
 			ensureTools();
+			if (lastCtx && engine.state === "connected" && current && current.epoch !== engine.epoch) {
+				void reconcile(lastCtx);
+			}
 		});
 		updateStatus();
 		ensureTools();
@@ -483,7 +520,7 @@ export function registerBrowser(pi: ExtensionAPI, store: ConfigStore, options: B
 	pi.on("before_agent_start", (event) => {
 		ensureTools();
 		if (engine.state !== "connected") return;
-		event.systemPromptOptions.sections[BROWSER_SECTION_NAME] = browserSectionText(engine.pages(), current?.pageId);
+		event.systemPromptOptions.sections[BROWSER_SECTION_NAME] = browserSectionText(engine.pages(), activeCurrentPage()?.id);
 	});
 
 	pi.on("input", async (event, ctx) => {

@@ -13,6 +13,7 @@ export class FakeBrowserEngine implements BrowserEngineLike {
 	epoch = 1;
 	error: string | undefined;
 	mode: string | undefined = "launch";
+	remote = false;
 	pid: number | undefined = 4242;
 	serverVersion: string | undefined = "1.13.0";
 	readonly snapshots = new SnapshotCache();
@@ -78,7 +79,8 @@ export class FakeBrowserEngine implements BrowserEngineLike {
 		this.emit();
 	}
 
-	retain(owner: object): void {
+	retain(owner: object, root?: string): void {
+		if (root && !this.roots.includes(root)) this.roots.push(root);
 		if (this.owners.has(owner)) return;
 		this.owners.add(owner);
 		this.retainCount++;
