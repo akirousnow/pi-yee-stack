@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.2] - 2026-11-20
+
+### 变更
+
+- `browser.focusTab` 默认改为 `false`：发送 `$t3 …` 只在 Pi 里切换当前 tab，不再调用 `select_page` 把 Chrome 切到前台。需要原来的行为时在 `/yee-config → Browser` 打开「选中后切到前台」。
+- `browser_new_tab` 默认 `background: true`，新 tab 在后台打开；需要前台时传 `background: false`。
+- `$` 补全列表改为显示 tab 标题，`$t3` 和 URL 放在副标题里；插入编辑器的仍然是 `$t3`。
+
 ## [0.4.1] - 2026-11-20
 
 ### 修复

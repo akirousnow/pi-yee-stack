@@ -1,6 +1,6 @@
 {
   "name": "pi-yee-stack",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "A small stack of extensions for Pi: Wish Specializer (/wish), read-only Q&A Ask mode (/ask), browser control with $tN tabs (/browser), and a tabbed /yee-config page.",
   "type": "module",
   "license": "MIT",

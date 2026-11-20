@@ -271,13 +271,15 @@ const specs: ToolSpec[] = [
 		needsPage: false,
 		parameters: Type.Object({
 			url: Type.String({ description: "URL to open." }),
-			background: Type.Optional(Type.Boolean({ description: "Open without focusing the tab." })),
+			background: Type.Optional(
+				Type.Boolean({ description: "Open without focusing the tab. Defaults to true." }),
+			),
 			timeout: Type.Optional(Type.Integer({ minimum: 1, maximum: 300_000 })),
 		}),
 		build: (params) =>
 			compact({
 				url: requireString(params, "url"),
-				background: optionalBoolean(params, "background"),
+				background: optionalBoolean(params, "background") ?? true,
 				timeout: optionalNumber(params, "timeout"),
 			}),
 		after: (result, deps) => {

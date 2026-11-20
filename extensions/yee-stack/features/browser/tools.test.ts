@@ -135,6 +135,10 @@ function setup() {
 	assert.equal(current(), 9);
 	assert.match(result.content[0]!.text!, /已打开 \$t9 新页面/);
 	assert.equal(engine.calls.at(-1)?.name, "new_page");
+	assert.equal(engine.calls.at(-1)?.args.background, true, "new tabs open in the background by default");
+
+	await run("browser_new_tab", { url: "https://example.com/foreground", background: false });
+	assert.equal(engine.calls.at(-1)?.args.background, false, "background can still be turned off");
 
 	engine.result = {
 		content: [{ type: "text", text: "## Pages\n5: docs" }],

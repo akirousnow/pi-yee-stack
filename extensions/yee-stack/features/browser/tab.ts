@@ -202,7 +202,7 @@ export function createBrowserTab({ store }: BrowserTabOptions): ConfigTab {
 		id: "browser.focusTab",
 		label: "选中后切到前台",
 		value: () => yesNo(browser().focusTab),
-		description: "发送带 $tN 的消息时，把那个 tab 切到 Chrome 前台。",
+		description: "默认关闭：发送 $tN 只在 Pi 里切换当前 tab，不把 Chrome 切到前台。打开后会把那个 tab 带到前台。",
 		activate: (host) => {
 			const next = !browser().focusTab;
 			if (!save(host, (draft) => void (draft.browser.focusTab = next))) return;

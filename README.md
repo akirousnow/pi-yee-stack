@@ -18,7 +18,7 @@
 从 GitHub 安装：
 
 ```bash
-pi install git:github.com/akirousnow/pi-yee-stack@v0.4.1
+pi install git:github.com/akirousnow/pi-yee-stack@v0.4.2
 ```
 
 然后在 Pi 里重新加载：
@@ -46,7 +46,7 @@ pi install ./pi-yee-stack
 ```bash
 pi list                                   # 找到旧包的来源
 pi remove git:github.com/akirousnow/pi-wish-specializer@v0.2.0   # 以 pi list 显示的为准
-pi install git:github.com/akirousnow/pi-yee-stack@v0.4.1
+pi install git:github.com/akirousnow/pi-yee-stack@v0.4.2
 ```
 
 你原来的设置不会丢：首次运行时，`~/.pi/agent/wish-specializer.json` 里的模型、风格、快捷键会被自动导入（旧文件原样保留，不会被修改或删除），第一次在 `/yee-config` 里改动后才会写入新的 `yee-stack.json`。`/wish-config` 仍然可用，会直接打开配置页的 Wish 标签。
@@ -205,8 +205,8 @@ Ask 模式按**会话**保存：`/reload`、`/resume`、`pi -c`、`/tree` 切换
 
 Yee Stack 自己当 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 的 MCP 客户端：一个 Pi 进程只起一个 MCP 子进程，`/reload`、`/new`、`/resume` 不会重连，也不会重复触发 Chrome 的授权弹窗。连上之后：
 
-- 在输入框里打 `$` 会列出所有 tab，选中后插入 `$t3 `；
-- 发送 `$t3 把近 7 天数据整理成表格` 时，`$t3` 成为本次的**当前 tab**（并切到 Chrome 前台，可关闭）；
+- 在输入框里打 `$` 会列出所有 tab（显示标题，编号和 URL 作为副标题），选中后插入 `$t3 `；
+- 发送 `$t3 把近 7 天数据整理成表格` 时，`$t3` 成为本次的**当前 tab**；默认只在 Pi 里切换，不把 Chrome 切到前台（可在 `/yee-config → Browser` 打开）；
 - 模型用 `browser_*` 工具看无障碍快照、点击、填表、导航；每次调用默认就是当前 tab。
 
 你的原话不会被改写：`$t3` 留在消息里，由 `<yee-browser>` 系统提示分区解释。
@@ -238,7 +238,7 @@ Chrome 136 起，默认 profile 会忽略 `--remote-debugging-port`。想连日�
 
 ### `$` 与 tab
 
-- `$` 后面可以继续打字过滤标题、域名或 URL；`$HOME`、`$5` 这类不匹配任何 tab 的输入会交回 Pi 原来的补全。
+- `$` 后面可以继续打字过滤标题、域名或 URL；列表显示标题，插入的仍是 `$t3`。`$HOME`、`$5` 这类不匹配任何 tab 的输入会交回 Pi 原来的补全。
 - tab 名就是 chrome-devtools-mcp 的 pageId：`$t3` = `pageId 3`。
 - 会话里保存的是 `{pageId, epoch, url, title}`。MCP 重启后 pageId 会变，恢复时按 URL、再按标题找回。
 - 多个 tab 时不给 `page` 参数会报错并列出 tab；只有一个 tab 时直接用它。
@@ -259,7 +259,7 @@ Chrome 136 起，默认 profile 会忽略 `--remote-debugging-port`。想连日�
 | `browser_dialog` | 处理 alert / confirm / prompt | |
 | `browser_upload` | 给 file input 设置文件（限当前项目目录） | |
 
-- 工具只在连接期间激活，断开即移除。
+- 工具只在连接期间激活，断开即移除。`browser_new_tab` 默认 `background: true`，新 tab 不会带到前台；需要前台时传 `background: false`。
 - 操作类工具默认带 `includeSnapshot`，但只回传**新增或变化的元素**（uid 稳定，新元素用新一代前缀）；导航后自动回整页。
 - 描述和参数是重写过的，15 个工具约 2.2k token，而不是上游 33 个的 7–8k。
 - 不提供 `filePath` 这类会写文件的参数；快照过长时中间截断，全文存到临时文件并把路径告诉模型。
@@ -304,7 +304,7 @@ chrome-devtools-mcp 默认关闭 JavaScript 求值（`--no-javascript-evaluation
     "headless": "auto",
     "profileDir": null,
     "listenOnStartup": false,
-    "focusTab": true,
+    "focusTab": false,
     "allowEval": false,
     "shortcut": null
   }
@@ -314,7 +314,7 @@ chrome-devtools-mcp 默认关闭 JavaScript 求值（`--no-javascript-evaluation
 - `wish.model` 为 `null` 表示跟随当前 Pi 模型；
 - `shortcut` 为 `null` 表示不设置快捷键；缺省则使用默认值；
 - 三个功能的快捷键冲突时按 Wish > Ask > Browser 保留，后面的会被停用（启动时提示）；
-- `browser.connect` 取 `auto` / `url` / `launch`；`browser.endpoint` 只在 `url` 时使用；`browser.headless` 取 `auto` / `on` / `off`；
+- `browser.connect` 取 `auto` / `url` / `launch`；`browser.endpoint` 只在 `url` 时使用；`browser.headless` 取 `auto` / `on` / `off`；`browser.focusTab` 默认 `false`，不会把选中的 tab 切到 Chrome 前台；
 - 读取时对缺失、损坏、未知字段都会退回默认值；写入是原子的，并且每次保存前都会重新读取文件，同时开着多个 Pi 也不会互相覆盖对方的改动。
 
 ## 实现说明

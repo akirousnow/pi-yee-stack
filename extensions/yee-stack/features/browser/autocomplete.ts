@@ -27,11 +27,13 @@ function triggerIndex(textBeforeCursor: string): { start: number; query: string 
 }
 
 function toItem(page: PageInfo): AutocompleteItem {
-	const title = page.title.trim() || page.url || "(无标题)";
+	const title = page.title.trim() || page.url.trim() || "(无标题)";
+	const url = page.url.trim();
 	return {
+		// The value inserted into the editor stays $t3; the list shows the title.
 		value: tabRef(page.id),
-		label: tabRef(page.id),
-		description: `${title}${page.url && page.url !== title ? ` — ${page.url}` : ""}`,
+		label: title,
+		description: `${tabRef(page.id)}${url && url !== title ? ` · ${url}` : ""}`,
 	};
 }
 

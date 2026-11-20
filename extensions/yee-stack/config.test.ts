@@ -174,7 +174,7 @@ try {
 		assert.equal(defaultConfig().browser.connect, "auto");
 		assert.equal(defaultConfig().browser.channel, "stable");
 		assert.equal(defaultConfig().browser.headless, "auto");
-		assert.equal(defaultConfig().browser.focusTab, true);
+		assert.equal(defaultConfig().browser.focusTab, false);
 		assert.equal(defaultConfig().browser.listenOnStartup, false);
 		assert.equal(defaultConfig().browser.allowEval, false);
 		assert.equal(defaultConfig().browser.shortcut, null);
@@ -221,6 +221,8 @@ try {
 			},
 		});
 		assert.deepEqual(junk.browser, defaultConfig().browser);
+
+		assert.equal(normalizeConfig({ browser: { focusTab: true } }).browser.focusTab, true);
 	}
 
 	// ── browser shortcut collision: Wish, then Ask, keep theirs ────────────

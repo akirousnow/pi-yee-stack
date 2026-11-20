@@ -87,8 +87,10 @@ try {
 	console.log(`yee-stack browser e2e: chrome-devtools-mcp ${engine.serverVersion}, ${chrome}`);
 
 	const opened = await run("browser_new_tab", { url });
-	assert.match(opened.text, /已打开 \$t\d+ Yee E2E/);
-	assert.ok(current !== undefined, "the new tab became current");
+	const openedId = opened.text.match(/已打开 \$t(\d+)/)?.[1];
+	assert.ok(openedId, "the new tab is reported");
+	assert.equal(current, Number(openedId), "the new tab became current in Pi");
+	assert.equal(engine.pages().find((page) => page.id === current)?.url, url, "new tabs open in the background by default");
 
 	const snapshot = await run("browser_snapshot");
 	const uid = (pattern: RegExp) =>

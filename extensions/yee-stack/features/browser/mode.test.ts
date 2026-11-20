@@ -140,7 +140,7 @@ try {
 
 	// ── $t5 selects the tab for the run ───────────────────────────────────
 	{
-		const { fake, engine, c } = setup();
+		const { fake, engine, c } = setup({ config: { browser: { focusTab: true } } });
 		engine.connect([...PAGES]);
 		await emit(fake, "session_start", { reason: "reload" }, c.ctx);
 		engine.calls.length = 0;
@@ -158,8 +158,8 @@ try {
 	}
 
 	{
-		// focusTab = false does not call select_page.
-		const { fake, engine, c } = setup({ config: { browser: { focusTab: false } } });
+		// focusTab defaults to false: the tab is selected in Pi only.
+		const { fake, engine, c } = setup();
 		engine.connect([...PAGES]);
 		await emit(fake, "session_start", { reason: "reload" }, c.ctx);
 		engine.calls.length = 0;

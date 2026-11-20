@@ -49,7 +49,7 @@ export interface BrowserEngineLike {
 }
 
 const CLIENT_NAME = "pi-yee-stack";
-const CLIENT_VERSION = "0.4.1";
+const CLIENT_VERSION = "0.4.2";
 // A new package version gets a new engine, so a reload after an upgrade does
 // not keep running the old MCP client code.
 const ENGINE_KEY = Symbol.for(`pi-yee-stack/browser-engine@${CLIENT_VERSION}`);

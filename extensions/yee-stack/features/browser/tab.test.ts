@@ -101,8 +101,9 @@ try {
 		assert.equal(store.get().browser.listenOnStartup, true);
 		assert.match(notifications.at(-1)!.text, /自动连接浏览器/);
 
+		assert.equal(store.get().browser.focusTab, false, "foreground switching is off by default");
 		row("browser.focusTab").activate(host);
-		assert.equal(store.get().browser.focusTab, false);
+		assert.equal(store.get().browser.focusTab, true);
 
 		row("browser.allowEval").activate(host);
 		assert.equal(store.get().browser.allowEval, true);

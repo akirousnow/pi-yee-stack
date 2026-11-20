@@ -82,6 +82,8 @@ function wrap(base: AutocompleteProvider, listening = true) {
 
 	const all = await provider.getSuggestions(["$"], 0, 1, { signal: SIGNAL });
 	assert.deepEqual(all?.items.map((item) => item.value), ["$t3", "$t5"]);
+	assert.equal(all?.items[0]?.label, "抖音创作者中心", "the list shows the title, not the page id");
+	assert.equal(all?.items[0]?.description, "$t3 · https://creator.douyin.com/");
 	assert.equal(all?.prefix, "$");
 	const applied = provider.applyCompletion(["看看 $"], 0, 4, all!.items[0]!, all!.prefix);
 	assert.deepEqual(applied.lines, ["看看 $t3 "]);
