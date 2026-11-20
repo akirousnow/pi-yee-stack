@@ -11,8 +11,8 @@
  */
 
 import z from "@deepseek-ai/schemastery";
-import type { BrowserChannel, BrowserConnect, BrowserHeadless, BrowserConfig, Tier } from "@yee-stack/core";
-import { ASK_SECTION_TEXT } from "@yee-stack/ask";
+import type { BrowserChannel, BrowserConnect, BrowserHeadless, BrowserConfig, Tier } from "yee-stack-core";
+import { ASK_SECTION_TEXT } from "yee-stack-ask";
 
 export interface WishOptions {
 	/** Default tier for `/wish`; `/wish light …` overrides it per call. */

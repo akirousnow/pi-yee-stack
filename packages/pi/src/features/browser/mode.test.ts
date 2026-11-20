@@ -6,7 +6,7 @@ import { ConfigStore, type ConfigPaths } from "../../config-store.ts";
 import { FakeBrowserEngine } from "../../test-support/fake-browser-engine.ts";
 import { createFakeCtx, createFakePi } from "../../test-support/fakes.ts";
 import { registerBrowser } from "./index.ts";
-import type { PageInfo } from "@yee-stack/browser";
+import type { PageInfo } from "yee-stack-browser";
 
 const dir = mkdtempSync(join(tmpdir(), "yee-browser-test-"));
 let counter = 0;

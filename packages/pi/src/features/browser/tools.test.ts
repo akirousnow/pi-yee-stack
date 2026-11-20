@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CallToolResult } from "@earendil-works/pi-mcp";
 import { FakeBrowserEngine } from "../../test-support/fake-browser-engine.ts";
-import type { PageInfo } from "@yee-stack/browser";
+import type { PageInfo } from "yee-stack-browser";
 import { BROWSER_UPSTREAM_TOOLS, type BrowserToolDeps, createBrowserTools } from "./tools.ts";
 
 const PAGES: PageInfo[] = [

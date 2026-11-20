@@ -15,7 +15,7 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type { Agent } from "@deepseek-ai/dsh-agent";
 import { BlockAssembler, createUserMessage } from "@deepseek-ai/dsh-llm";
-import { buildFinalPrompt, buildSystemPrompt, buildWishUserText, cleanSupplement, parseCommandArgs } from "@yee-stack/wish";
+import { buildFinalPrompt, buildSystemPrompt, buildWishUserText, cleanSupplement, parseCommandArgs } from "yee-stack-wish";
 import type { WishOptions } from "./config.ts";
 
 /** The model route this session is using, or `undefined` when it has none yet. */

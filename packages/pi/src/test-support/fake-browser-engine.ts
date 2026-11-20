@@ -3,8 +3,8 @@
  */
 
 import type { CallToolResult } from "@earendil-works/pi-mcp";
-import type { BrowserConfig } from "@yee-stack/core";
-import { type PageInfo, SnapshotCache } from "@yee-stack/browser";
+import type { BrowserConfig } from "yee-stack-core";
+import { type PageInfo, SnapshotCache } from "yee-stack-browser";
 import type { BrowserEngineLike, EngineState } from "../features/browser/mcp.ts";
 import { BROWSER_UPSTREAM_TOOLS } from "../features/browser/tools.ts";
 

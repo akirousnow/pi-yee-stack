@@ -8,7 +8,7 @@
 
 import type { AutocompleteItem, AutocompleteProvider, AutocompleteSuggestions } from "@earendil-works/pi-tui";
 import { fuzzyFilter } from "@earendil-works/pi-tui";
-import { tabRef, type PageInfo } from "@yee-stack/browser";
+import { tabRef, type PageInfo } from "yee-stack-browser";
 
 export interface TabAutocompleteOptions {
 	pages(): readonly PageInfo[];

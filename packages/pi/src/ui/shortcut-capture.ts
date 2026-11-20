@@ -9,7 +9,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager } from "@earendil-works/pi-tui";
 import { matchesKey, parseKey } from "@earendil-works/pi-tui";
-import { isShortcutShapeValid, shortcutLabel } from "@yee-stack/core";
+import { isShortcutShapeValid, shortcutLabel } from "yee-stack-core";
 import { findBuiltinShortcutConflict } from "../shortcut.ts";
 import type { ConfigView } from "./config-page.ts";
 

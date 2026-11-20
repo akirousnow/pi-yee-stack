@@ -3,8 +3,8 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { shortcutLabel } from "@yee-stack/core";
-import { candidateExtraTools, type ToolLike } from "@yee-stack/ask";
+import { shortcutLabel } from "yee-stack-core";
+import { candidateExtraTools, type ToolLike } from "yee-stack-ask";
 import type { ConfigStore } from "../../config-store.ts";
 import { type ChecklistItem, ChecklistView } from "../../ui/checklist.ts";
 import type { ConfigHost, ConfigRow, ConfigTab } from "../../ui/config-page.ts";

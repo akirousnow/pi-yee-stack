@@ -9,27 +9,31 @@
 | **Browser** 浏览器操控 | `/browser`、`browser_*`、`$t3` | 自己拉起 chrome-devtools-mcp，选定 tab 后看快照、点击、填表 |
 | **设置** | `/yee-config` | 打印当前解析后的设置 |
 
-与 Pi 版共享 `@yee-stack/core`、`@yee-stack/{wish,ask,browser}`：提示词、工具策略、`$tN` 解析、快照 diff、chrome-devtools-mcp 连接规划都是同一份代码。
+与 Pi 版共享 `yee-stack-core`、`@yee-stack/{wish,ask,browser}`：提示词、工具策略、`$tN` 解析、快照 diff、chrome-devtools-mcp 连接规划都是同一份代码。
 
 ## 安装
 
-从仓库 checkout 安装（会 `pnpm link` 整个目录）：
+从 npm 安装（`0.5.0`）：
 
 ```bash
-npm install && npm run build          # 先构建 core / features / dsh
-dsh plugin --profile <name> add ./packages/dsh
-dsh --profile <name> --dump-config | grep -A 2 'yee-stack'
-dsh --profile <name>
+dsh plugin --profile web add yee-stack-dsh
+dsh --profile web --dump-config | grep -A 2 'yee-stack'
+dsh web
 ```
 
-也可以 `pnpm pack` 出 tarball 再 `dsh plugin --profile <name> add ./yee-stack-dsh-0.5.0.tgz`。
+本地开发时从 checkout 安装（`pnpm link` 整个目录，先构建）：
+
+```bash
+npm install && npm run build
+dsh plugin --profile web add ./packages/dsh
+```
 
 安装后多出一层：
 
 ```yaml
-# == @yee-stack/dsh
+# == yee-stack-dsh
 - id: yee-stack
-  name: '@yee-stack/dsh'
+  name: 'yee-stack-dsh'
 ```
 
 ## 配置
@@ -121,8 +125,8 @@ dsh --profile <name>
 
 ```bash
 node scripts/link-dsh.mjs            # 类型检查用：软链本机 dsh 的 @deepseek-ai/*
-npm run build -w @yee-stack/dsh
-npm run test -w @yee-stack/dsh       # ask / wish / browser / config
+npm run build -w yee-stack-dsh
+npm run test -w yee-stack-dsh       # ask / wish / browser / config
 ```
 
 验证一个 checkout 不装进 profile 也能组合：

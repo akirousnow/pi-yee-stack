@@ -7,8 +7,8 @@
 
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ExtensionContext, ModelRegistry } from "@earendil-works/pi-coding-agent";
-import type { ModelRef, Tier } from "@yee-stack/core";
-import { assistantText, buildSystemPrompt, buildWishUserText, cleanSupplement } from "@yee-stack/wish";
+import type { ModelRef, Tier } from "yee-stack-core";
+import { assistantText, buildSystemPrompt, buildWishUserText, cleanSupplement } from "yee-stack-wish";
 import type { UserMessage } from "@earendil-works/pi-ai";
 
 /** The pi-ai message carrying the wish: tier plus the wish, fenced as data. */

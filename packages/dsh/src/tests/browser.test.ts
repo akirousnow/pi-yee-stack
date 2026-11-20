@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type PageInfo, SnapshotCache } from "@yee-stack/browser";
+import { type PageInfo, SnapshotCache } from "yee-stack-browser";
 import type { McpToolResult } from "../mcp.ts";
 import { BROWSER_UPSTREAM_TOOLS, createBrowserTools, resolvePageId, type BrowserToolDeps } from "../tools.ts";
 

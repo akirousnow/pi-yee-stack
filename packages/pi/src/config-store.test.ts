@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_ASK_SHORTCUT, defaultConfig } from "@yee-stack/core";
+import { DEFAULT_ASK_SHORTCUT, defaultConfig } from "yee-stack-core";
 import { ConfigStore, type ConfigPaths, loadConfig } from "./config-store.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "yee-config-test-"));

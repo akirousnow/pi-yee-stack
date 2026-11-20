@@ -19,7 +19,7 @@
     "packages/dsh"
   ],
   "scripts": {
-    "build": "npm run build -w @yee-stack/core && npm run build -w @yee-stack/wish -w @yee-stack/ask -w @yee-stack/browser && npm run build -w @yee-stack/dsh --if-present",
+    "build": "npm run build -w yee-stack-core && npm run build -w yee-stack-wish -w yee-stack-ask -w yee-stack-browser && npm run build -w yee-stack-dsh --if-present",
     "typecheck": "npm run build && npm run typecheck --workspaces --if-present",
     "test": "npm run build && npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w pi-yee-stack --if-present",

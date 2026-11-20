@@ -6,8 +6,8 @@
  */
 
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { shortcutLabel, type BrowserChannel, type BrowserConnect, type BrowserHeadless } from "@yee-stack/core";
-import { defaultProfileDir } from "@yee-stack/browser";
+import { shortcutLabel, type BrowserChannel, type BrowserConnect, type BrowserHeadless } from "yee-stack-core";
+import { defaultProfileDir } from "yee-stack-browser";
 import type { ConfigStore } from "../../config-store.ts";
 import type { ConfigHost, ConfigRow, ConfigTab } from "../../ui/config-page.ts";
 import { ShortcutCaptureView } from "../../ui/shortcut-capture.ts";

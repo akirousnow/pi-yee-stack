@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { ConfigStore, type ConfigPaths } from "../../config-store.ts";
 import { createFakeCtx, createFakePi, defaultTools, type FakeTool } from "../../test-support/fakes.ts";
 import { registerAsk } from "./index.ts";
-import { ASK_SECTION_NAME, ASK_SECTION_TEXT } from "@yee-stack/ask";
+import { ASK_SECTION_NAME, ASK_SECTION_TEXT } from "yee-stack-ask";
 
 const dir = mkdtempSync(join(tmpdir(), "yee-ask-test-"));
 let counter = 0;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { type AutocompleteProvider, type AutocompleteSuggestions, CombinedAutocompleteProvider } from "@earendil-works/pi-tui";
 import { createTabAutocompleteProvider } from "./autocomplete.ts";
-import type { PageInfo } from "@yee-stack/browser";
+import type { PageInfo } from "yee-stack-browser";
 
 const PAGES: PageInfo[] = [
 	{ id: 3, title: "抖音创作者中心", url: "https://creator.douyin.com/", selected: true },

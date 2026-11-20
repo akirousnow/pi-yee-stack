@@ -28,7 +28,7 @@ import {
 	parseTabRef,
 	stripPageList,
 	tabRef,
-} from "@yee-stack/browser";
+} from "yee-stack-browser";
 import type { BrowserEngineLike } from "./mcp.ts";
 
 export interface BrowserToolDeps {

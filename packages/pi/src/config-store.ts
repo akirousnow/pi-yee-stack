@@ -3,7 +3,7 @@
  *
  *   ~/.pi/agent/yee-stack.json
  *
- * The schema, defaults and validation live in `@yee-stack/core`; this module
+ * The schema, defaults and validation live in `yee-stack-core`; this module
  * only owns the file: it reads defensively (missing, malformed and unknown
  * fields all fall back to defaults) and writes atomically. `update()` always
  * re-reads the file first, so two Pi processes that change different settings
@@ -22,7 +22,7 @@ import {
 	isRecord,
 	normalizeConfig,
 	type YeeConfig,
-} from "@yee-stack/core";
+} from "yee-stack-core";
 
 export interface ConfigPaths {
 	config: string;

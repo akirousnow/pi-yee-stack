@@ -5,7 +5,7 @@
  * The wording of the system prompt is unchanged from pi-wish-specializer.
  */
 
-import { isTier, type Tier } from "@yee-stack/core";
+import { isTier, type Tier } from "yee-stack-core";
 
 export const TIER_LABEL: Record<Tier, string> = {
 	light: "轻量",

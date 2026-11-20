@@ -3,8 +3,8 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { shortcutLabel, type ModelRef, type Tier } from "@yee-stack/core";
-import { TIER_LABEL } from "@yee-stack/wish";
+import { shortcutLabel, type ModelRef, type Tier } from "yee-stack-core";
+import { TIER_LABEL } from "yee-stack-wish";
 import type { ConfigStore } from "../../config-store.ts";
 import type { ConfigHost, ConfigRow, ConfigTab } from "../../ui/config-page.ts";
 import { type ModelChoice, ModelPickerView, sameModel } from "../../ui/model-picker.ts";

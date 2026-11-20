@@ -1,5 +1,5 @@
 {
-  "name": "@yee-stack/wish",
+  "name": "yee-stack-wish",
   "version": "0.5.0",
   "description": "Wish Specializer: tiers, system prompt, supplement cleanup, command parsing.",
   "type": "module",
@@ -15,7 +15,8 @@
   },
   "files": [
     "lib/",
-    "src/"
+    "src/",
+    "!src/**/*.test.ts"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -23,7 +24,7 @@
     "test": "tsx src/index.test.ts"
   },
   "dependencies": {
-    "@yee-stack/core": "*"
+    "yee-stack-core": "^0.5.0"
   },
   "devDependencies": {
     "@types/node": "^25.7.0",

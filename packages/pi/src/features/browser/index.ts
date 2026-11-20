@@ -20,7 +20,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { KeyId } from "@earendil-works/pi-tui";
 import { fuzzyFilter } from "@earendil-works/pi-tui";
-import { displayShortcut, type BrowserConfig } from "@yee-stack/core";
+import { displayShortcut, type BrowserConfig } from "yee-stack-core";
 import {
 	BROWSER_SECTION_NAME,
 	browserSectionText,
@@ -31,7 +31,7 @@ import {
 	type PageInfo,
 	parseTabRef,
 	tabRef,
-} from "@yee-stack/browser";
+} from "yee-stack-browser";
 import type { ConfigStore } from "../../config-store.ts";
 import type { ConfigTabFactory } from "../../ui/config-page.ts";
 import { createTabAutocompleteProvider } from "./autocomplete.ts";

@@ -28,7 +28,7 @@ import {
 	SnapshotCache,
 	stripPageList,
 	tabRef,
-} from "@yee-stack/browser";
+} from "yee-stack-browser";
 import type { McpToolResult } from "./mcp.ts";
 
 /** One JSON-serializable content block; the canonical tool value. */

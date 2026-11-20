@@ -16,8 +16,8 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { KeyId } from "@earendil-works/pi-tui";
-import { displayShortcut, type Tier } from "@yee-stack/core";
-import { buildFinalPrompt, parseCommandArgs, TIER_LABEL } from "@yee-stack/wish";
+import { displayShortcut, type Tier } from "yee-stack-core";
+import { buildFinalPrompt, parseCommandArgs, TIER_LABEL } from "yee-stack-wish";
 import type { ConfigStore } from "../../config-store.ts";
 import type { ConfigTabFactory } from "../../ui/config-page.ts";
 import { showGeneratingDialog, showResultDialog } from "./dialog.ts";

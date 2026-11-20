@@ -1,7 +1,7 @@
 /**
  * Pi-specific shortcut helper.
  *
- * Validation and display live in `@yee-stack/core`; only the "is this key
+ * Validation and display live in `yee-stack-core`; only the "is this key
  * already bound to a Pi built-in action" lookup needs pi-tui.
  */
 

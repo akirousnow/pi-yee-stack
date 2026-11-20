@@ -1,5 +1,5 @@
 {
-  "name": "@yee-stack/browser",
+  "name": "yee-stack-browser",
   "version": "0.5.0",
   "description": "Browser control plumbing: $tN tab refs, list_pages parsing, snapshot diffs, chrome-devtools-mcp connection planning.",
   "type": "module",
@@ -15,7 +15,8 @@
   },
   "files": [
     "lib/",
-    "src/"
+    "src/",
+    "!src/**/*.test.ts"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -23,7 +24,7 @@
     "test": "tsx src/refs.test.ts && tsx src/tabs.test.ts && tsx src/snapshot.test.ts && tsx src/args.test.ts && tsx src/upload.test.ts"
   },
   "dependencies": {
-    "@yee-stack/core": "*"
+    "yee-stack-core": "^0.5.0"
   },
   "devDependencies": {
     "@types/node": "^25.7.0",

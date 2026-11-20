@@ -1,5 +1,5 @@
 {
-  "name": "@yee-stack/dsh",
+  "name": "yee-stack-dsh",
   "version": "0.5.0",
   "description": "Yee Stack for DeepSeek Harness: Wish Specializer (/wish), read-only Ask mode (/ask), and Chrome control through chrome-devtools-mcp (/browser).",
   "type": "module",
@@ -23,6 +23,7 @@
   "files": [
     "lib/",
     "src/",
+    "!src/tests/**",
     "locale/*.json",
     "cordis.patch.yml"
   ],
@@ -41,10 +42,10 @@
     "test": "tsx src/tests/ask.test.ts && tsx src/tests/wish.test.ts && tsx src/tests/browser.test.ts && tsx src/tests/config.test.ts"
   },
   "dependencies": {
-    "@yee-stack/ask": "*",
-    "@yee-stack/browser": "*",
-    "@yee-stack/core": "*",
-    "@yee-stack/wish": "*",
+    "yee-stack-ask": "^0.5.0",
+    "yee-stack-browser": "^0.5.0",
+    "yee-stack-core": "^0.5.0",
+    "yee-stack-wish": "^0.5.0",
     "chrome-devtools-mcp": "~1.13.0"
   },
   "peerDependencies": {

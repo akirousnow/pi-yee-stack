@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Link the DeepSeek Harness packages a plugin needs into this repo's
- * node_modules, so `tsc` can typecheck @yee-stack/dsh against the harness
+ * node_modules, so `tsc` can typecheck yee-stack-dsh against the harness
  * that is actually installed.
  *
  * The harness ships its component packages nested inside the dsh install.
@@ -42,7 +42,7 @@ try {
 	dshRoot = resolveDshRoot(process.argv[2]);
 } catch (error) {
 	// A fresh clone on a machine without the harness still installs fine; only
-	// @yee-stack/dsh's typecheck/build needs the links.
+	// yee-stack-dsh's typecheck/build needs the links.
 	if (process.argv[2]) throw error;
 	console.log("link-dsh: no @deepseek-ai/dsh install found; skipping (pass a path to link one)");
 	process.exit(0);

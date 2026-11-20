@@ -9,8 +9,8 @@ import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { BorderedLoader } from "@earendil-works/pi-coding-agent";
 import type { Focusable, KeybindingsManager, TUI } from "@earendil-works/pi-tui";
 import { Editor, truncateToWidth } from "@earendil-works/pi-tui";
-import type { Tier } from "@yee-stack/core";
-import { TIER_LABEL } from "@yee-stack/wish";
+import type { Tier } from "yee-stack-core";
+import { TIER_LABEL } from "yee-stack-wish";
 import { editorTheme, panelRow, popupOptions, popupWidth } from "../../ui/panel.ts";
 
 

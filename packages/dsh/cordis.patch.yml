@@ -14,4 +14,4 @@
 #         connect: launch
 - insert:
     - id: yee-stack
-      name: '@yee-stack/dsh'
+      name: 'yee-stack-dsh'

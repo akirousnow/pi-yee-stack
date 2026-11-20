@@ -34,7 +34,7 @@ import {
 	SnapshotCache,
 	tabRef,
 	formatTabList,
-} from "@yee-stack/browser";
+} from "yee-stack-browser";
 import { type BrowserOptions, toBrowserConfig } from "./config.ts";
 import { McpStdioClient, serverBin } from "./mcp.ts";
 import { createBrowserTools, READ_ONLY_BROWSER_TOOLS } from "./tools.ts";

@@ -7,7 +7,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager } from "@earendil-works/pi-tui";
 import { fuzzyFilter, Input } from "@earendil-works/pi-tui";
-import type { ModelRef } from "@yee-stack/core";
+import type { ModelRef } from "yee-stack-core";
 import type { ConfigView } from "./config-page.ts";
 import { ListCursor, renderListRow, scrollInfo } from "./list.ts";
 

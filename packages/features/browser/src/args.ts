@@ -18,7 +18,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join, win32 } from "node:path";
-import type { BrowserChannel, BrowserConfig } from "@yee-stack/core";
+import type { BrowserChannel, BrowserConfig } from "yee-stack-core";
 
 export interface ConnectEnv {
 	home: string;

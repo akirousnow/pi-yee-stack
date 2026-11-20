@@ -21,7 +21,7 @@ import { createUserMessage } from "@deepseek-ai/dsh-llm";
 import type { CommandDefinitionId } from "@deepseek-ai/dsh-commands";
 import type { ProjectionDefinition, ProjectionHandle } from "@deepseek-ai/dsh-session-projection";
 import type { Session } from "@deepseek-ai/dsh-session";
-import { askBlockedReason, createAskPolicy } from "@yee-stack/ask";
+import { askBlockedReason, createAskPolicy } from "yee-stack-ask";
 import { z as zod } from "zod";
 import type { AskOptions } from "./config.ts";
 
@@ -148,7 +148,7 @@ export async function registerAsk(ctx: Context, options: AskOptions): Promise<As
 
 	ctx.inject(["commands"], (commandCtx) => {
 		commandCtx.commands.register({
-			definitionId: brandString<CommandDefinitionId>("@yee-stack/dsh"),
+			definitionId: brandString<CommandDefinitionId>("yee-stack-dsh"),
 			name: "ask",
 			description: "Ask 模式（只读问答）：/ask 切换 · /ask <问题> 进入并提问 · /ask on|off|status",
 			input: { hint: "[on|off|status|<question>]" },

@@ -11,15 +11,17 @@
 
 > 前身是 [pi-wish-specializer](https://github.com/akirousnow/pi-wish-specializer)（仓库已更名为 `pi-yee-stack`，旧链接会自动跳转）。Wish 的行为**完全照旧**，只是设置搬进了 `/yee-config`。
 >
-> 0.5.0 起本包是 [yee-stack monorepo](https://github.com/akirousnow/pi-yee-stack) 里的 `packages/pi`，共享逻辑在 `@yee-stack/core` 与 `@yee-stack/{wish,ask,browser}`。同一个仓库里还有 DeepSeek Harness 版本 `@yee-stack/dsh`。
+> 0.5.0 起本包是 [yee-stack monorepo](https://github.com/akirousnow/pi-yee-stack) 里的 `packages/pi`，共享逻辑在 `yee-stack-core` 与 `@yee-stack/{wish,ask,browser}`。同一个仓库里还有 DeepSeek Harness 版本 `yee-stack-dsh`。
 
 在 Pi 1.4.0 与 1.5.x 上测试过。
 
 ## 安装
 
 ```bash
-pi install pi-yee-stack@0.5.0
+pi install npm:pi-yee-stack@0.5.0
 ```
+
+四个共享包（`yee-stack-core` / `-wish` / `-ask` / `-browser`）会作为依赖自动装上。
 
 然后在 Pi 里重新加载：
 
@@ -361,8 +363,8 @@ pi -e ./packages/pi
 ```text
 src/
 ├── index.ts               # 入口：注册各功能和 /yee-config
-├── config-store.ts        # yee-stack.json 的读取、原子写入、旧配置导入（schema 在 @yee-stack/core）
-├── shortcut.ts            # Pi 内置快捷键冲突检测（校验/显示在 @yee-stack/core）
+├── config-store.ts        # yee-stack.json 的读取、原子写入、旧配置导入（schema 在 yee-stack-core）
+├── shortcut.ts            # Pi 内置快捷键冲突检测（校验/显示在 yee-stack-core）
 ├── features/
 │   ├── wish/              # /wish、浮窗、模型调用、Wish 标签
 │   ├── ask/               # /ask、工具集切换、提示词分区、Ask 标签

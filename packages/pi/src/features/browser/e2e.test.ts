@@ -11,7 +11,7 @@ import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:f
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defaultConfig } from "@yee-stack/core";
+import { defaultConfig } from "yee-stack-core";
 import { BrowserEngine } from "./mcp.ts";
 import { createBrowserTools } from "./tools.ts";
 

@@ -16,7 +16,7 @@
 import { pathToFileURL } from "node:url";
 import { McpClient, type CallToolResult, StdioTransport, type Tool } from "@earendil-works/pi-mcp";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import type { BrowserConfig } from "@yee-stack/core";
+import type { BrowserConfig } from "yee-stack-core";
 import {
 	buildServerCommand,
 	type ConnectPlan,
@@ -28,7 +28,7 @@ import {
 	parsePages,
 	parseStructuredPages,
 	SnapshotCache,
-} from "@yee-stack/browser";
+} from "yee-stack-browser";
 
 export type EngineState = "idle" | "starting" | "connected" | "error";
 

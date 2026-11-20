@@ -10,7 +10,7 @@ import {
 	planConnection,
 	resolveHeadless,
 } from "./args.ts";
-import { defaultConfig } from "@yee-stack/core";
+import { defaultConfig } from "yee-stack-core";
 
 const env: ConnectEnv = {
 	home: "/home/u",

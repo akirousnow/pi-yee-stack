@@ -1,5 +1,5 @@
 {
-  "name": "@yee-stack/core",
+  "name": "yee-stack-core",
   "version": "0.5.0",
   "description": "Host-agnostic core of Yee Stack: wish prompts, ask policy, browser tab refs/snapshots, chrome-devtools-mcp connection planning, and the shared config schema.",
   "type": "module",
@@ -15,7 +15,8 @@
   },
   "files": [
     "lib/",
-    "src/"
+    "src/",
+    "!src/**/*.test.ts"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

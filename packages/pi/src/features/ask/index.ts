@@ -19,9 +19,9 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { KeyId } from "@earendil-works/pi-tui";
-import { displayShortcut } from "@yee-stack/core";
-import { blockedTools, computeAskTools, isToolAllowed, toolsAfterAsk } from "@yee-stack/ask";
-import { ASK_SECTION_NAME, ASK_SECTION_TEXT, askBlockedReason } from "@yee-stack/ask";
+import { displayShortcut } from "yee-stack-core";
+import { blockedTools, computeAskTools, isToolAllowed, toolsAfterAsk } from "yee-stack-ask";
+import { ASK_SECTION_NAME, ASK_SECTION_TEXT, askBlockedReason } from "yee-stack-ask";
 import type { ConfigStore } from "../../config-store.ts";
 import type { ConfigTabFactory } from "../../ui/config-page.ts";
 import { createAskTab } from "./tab.ts";

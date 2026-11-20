@@ -1,5 +1,5 @@
 {
-  "name": "@yee-stack/ask",
+  "name": "yee-stack-ask",
   "version": "0.5.0",
   "description": "Ask mode policy: which tools stay available, the prompt section, and the blocked-call reason.",
   "type": "module",
@@ -15,7 +15,8 @@
   },
   "files": [
     "lib/",
-    "src/"
+    "src/",
+    "!src/**/*.test.ts"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

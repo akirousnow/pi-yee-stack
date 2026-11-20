@@ -1,6 +1,6 @@
 # Yee Stack
 
-一套小扩展，**一个 monorepo，两个宿主**：给 [Pi](https://github.com/earendil-works/pi) 的 `pi-yee-stack`，和给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 `@yee-stack/dsh`。
+一套小扩展，**一个 monorepo，两个宿主**：给 [Pi](https://github.com/earendil-works/pi) 的 `pi-yee-stack`，和给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 `yee-stack-dsh`。
 
 | 功能 | Pi | DeepSeek Harness | 一句话 |
 |---|---|---|---|
@@ -13,51 +13,60 @@
 
 | 包 | 目录 | 作用 |
 |---|---|---|
-| `@yee-stack/core` | `packages/core` | 配置 schema、快捷键、两个宿主共用的基础类型 |
-| `@yee-stack/wish` | `packages/features/wish` | 档位、系统提示词、补充内容清理、命令参数解析 |
-| `@yee-stack/ask` | `packages/features/ask` | 只读工具策略、Ask 提示词分区、拒绝理由 |
-| `@yee-stack/browser` | `packages/features/browser` | `$tN` 引用、`list_pages` 解析、快照 diff、chrome-devtools-mcp 连接规划 |
+| `yee-stack-core` | `packages/core` | 配置 schema、快捷键、两个宿主共用的基础类型 |
+| `yee-stack-wish` | `packages/features/wish` | 档位、系统提示词、补充内容清理、命令参数解析 |
+| `yee-stack-ask` | `packages/features/ask` | 只读工具策略、Ask 提示词分区、拒绝理由 |
+| `yee-stack-browser` | `packages/features/browser` | `$tN` 引用、`list_pages` 解析、快照 diff、chrome-devtools-mcp 连接规划 |
 | `pi-yee-stack` | `packages/pi` | Pi 宿主：TUI 浮窗、命令、快捷键、`browser_*` 工具 |
-| `@yee-stack/dsh` | `packages/dsh` | DeepSeek Harness 宿主：bundle patch、命令、工具、提示词分区、投影 |
+| `yee-stack-dsh` | `packages/dsh` | DeepSeek Harness 宿主：bundle patch、命令、工具、提示词分区、投影 |
 
 依赖方向只有一条：`features/*` → `core`，`pi`/`dsh` → `core` + `features/*`。功能包是纯逻辑，宿主包是适配层。
 
 ```text
 packages/
-├── core/                 # @yee-stack/core
+├── core/                 # yee-stack-core
 ├── features/
-│   ├── wish/             # @yee-stack/wish
-│   ├── ask/              # @yee-stack/ask
-│   └── browser/          # @yee-stack/browser
+│   ├── wish/             # yee-stack-wish
+│   ├── ask/              # yee-stack-ask
+│   └── browser/          # yee-stack-browser
 ├── pi/                   # pi-yee-stack（Pi 扩展，源码直接被 Pi 加载）
-└── dsh/                  # @yee-stack/dsh（dsh bundle，编译到 lib/）
+└── dsh/                  # yee-stack-dsh（dsh bundle，编译到 lib/）
 ```
 
-## 快速开始
+## 安装
 
-```bash
-git clone https://github.com/akirousnow/pi-yee-stack.git
-cd pi-yee-stack
-npm install
-npm run build          # 构建 core / features / dsh
-```
+已发布到 npm（`0.5.0`）：
+
+| 包 | 用途 |
+|---|---|
+| `pi-yee-stack` | Pi 扩展（会自动带上四个依赖包） |
+| `yee-stack-dsh` | DeepSeek Harness bundle |
+| `yee-stack-core` `-wish` `-ask` `-browser` | 两个宿主共用的实现 |
 
 **Pi**：
 
 ```bash
-pi -e ./packages/pi     # 直接加载
-pi install ./packages/pi
+pi install npm:pi-yee-stack@0.5.0
 ```
 
 **DeepSeek Harness**：
 
 ```bash
-dsh plugin --profile <name> add ./packages/dsh
-dsh --profile <name> --dump-config | grep yee-stack   # 确认层已组合
-dsh --profile <name>                                  # 重启后生效
+dsh plugin --profile web add yee-stack-dsh
+dsh --profile web --dump-config | grep yee-stack   # 确认层已组合
+dsh web                                            # 重启后生效
 ```
 
-> `@yee-stack/dsh` 以 `dsh.bundle.patch` 形式提供 `cordis.patch.yml`，插入一行 `id: yee-stack`。改配置就覆盖这一行的 `config`（patch 是整块替换，不深合并）。
+本地开发（从源码加载，需要先构建）：
+
+```bash
+git clone https://github.com/akirousnow/pi-yee-stack.git
+cd pi-yee-stack && npm install && npm run build
+pi -e ./packages/pi
+dsh plugin --profile web add ./packages/dsh
+```
+
+> `yee-stack-dsh` 以 `dsh.bundle.patch` 形式提供 `cordis.patch.yml`，插入一行 `id: yee-stack`。改配置就覆盖这一行的 `config`（patch 是整块替换，不深合并）。
 
 ## 开发
 
@@ -69,7 +78,7 @@ npm run test:e2e    # 真实 chrome-devtools-mcp + 无头 Chrome（没有 Chrome
 npm run clean       # 删掉所有 lib/
 ```
 
-DeepSeek Harness 的包不发布在 npm 的同一版本线上，`@yee-stack/dsh` 的类型检查要对着**本机安装的 dsh** 做：
+DeepSeek Harness 的包不发布在 npm 的同一版本线上，`yee-stack-dsh` 的类型检查要对着**本机安装的 dsh** 做：
 
 ```bash
 node scripts/link-dsh.mjs          # 把已安装 dsh 里的 @deepseek-ai/* 软链到本仓库 node_modules
