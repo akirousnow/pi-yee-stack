@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.5.0] - 2026-11-20
+
+仓库从单包扩展改成 **monorepo**，并新增 DeepSeek Harness 版。
+
+### 新增
+
+- **`@yee-stack/dsh`**：DeepSeek Harness 的 bundle（`dsh.bundle.patch` → `cordis.patch.yml`，插入 `id: yee-stack` 一行）。
+  - `/wish [light|standard|heavy] <愿望>`：`ctx.llm.prepareCall()` + `stream` + `BlockAssembler` 做一次私有补全，用当前会话的模型路由，结果作为命令文本返回。
+  - `/ask`：三层只读保证 —— agent 作用域的 `ctx.tools.restrict({ allow })`、单调 `ctx.tools.guard()`、`yee:ask` 提示词分区；开关状态是 `yee/ask` 日志事件 + `yee-ask` 投影，resume / fork 后恢复。
+  - `/browser` + 15 个 `browser_*` 工具 + `$tN` tab 引用：自带一个小的 MCP stdio 客户端（`src/mcp.ts`），因为 `dsh-mcp-client` 只注册工具、不给调用句柄，而 tab 列表与提示词分区要在模型回合之外调 `list_pages`。
+  - `/yee-config` 打印解析后的设置；配置走 row 的 `config:`，schemastery 校验。
+- 共享包：`@yee-stack/core`（配置 schema、快捷键）、`@yee-stack/wish`（档位与提示词）、`@yee-stack/ask`（只读策略与提示词分区）、`@yee-stack/browser`（`$tN`、`list_pages` 解析、快照 diff、chrome-devtools-mcp 连接规划）。两个宿主共用同一份实现。
+- `scripts/link-dsh.mjs`：把本机安装的 dsh 里的 `@deepseek-ai/*` 软链进仓库，供 `@yee-stack/dsh` 的类型检查使用。
+- `docs/dsh-api-digest.md`：对着本机 dsh 0.2.2-rc.5 整理的插件 API 摘要（命令、工具、restrict/guard、投影、一次性补全、MCP、配置）。
+
+### 变更
+
+- Pi 扩展源码从 `extensions/yee-stack/` 移到 **`packages/pi/src/`**，包名 `pi-yee-stack` 不变；入口从 `./extensions/yee-stack/index.ts` 改为 `./src/index.ts`。从 git 安装的老写法要改成 `pi install pi-yee-stack@0.5.0` 或 `pi -e ./packages/pi`。
+- Pi 侧的纯逻辑改为从共享包导入：`config.ts` 只剩文件读写（`config-store.ts`），`shortcut.ts` 只剩 Pi 内置键位冲突检测，`features/browser/{refs,tabs,snapshot,args,prompt}.ts` 与 `features/{wish/prompt,ask/policy,ask/prompt}.ts` 移入功能包。
+- 根 `npm test` / `npm run typecheck` 会先构建共享包再跑各包；`npm run clean` 清掉 `lib/`。
+- 版本号统一为 0.5.0（core / features / pi / dsh）。
+
+### 不变
+
+- Pi 版的行为：`/wish`、`Ctrl+Alt+W`、浮窗、`/ask` 三层策略、`/browser`、`$tN`、`/yee-config` 全部照旧，测试逐项通过。
+
 ## [0.4.3] - 2026-11-20
 
 ### 新增

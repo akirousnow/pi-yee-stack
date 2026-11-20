@@ -1,0 +1,17 @@
+# Yee Stack layer for DeepSeek Harness.
+#
+# One row: the plugin registers /wish, /ask, /browser, /yee-config, the
+# read-only tool policy, the browser tools and their prompt sections.
+#
+# Settings live in this row's config. Override the whole block in a profile's
+# own cordis.patch.yml (a patch replaces a row's config, it never deep-merges):
+#
+#   - id: yee-stack
+#     config:
+#       wish:
+#         tier: heavy
+#       browser:
+#         connect: launch
+- insert:
+    - id: yee-stack
+      name: '@yee-stack/dsh'

@@ -1,7 +1,8 @@
 {
-  "name": "pi-yee-stack",
-  "version": "0.4.3",
-  "description": "A small stack of extensions for Pi: Wish Specializer (/wish), read-only Q&A Ask mode (/ask), browser control with $tN tabs (/browser), and a tabbed /yee-config page.",
+  "name": "yee-stack",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Yee Stack monorepo: one shared core, one package per feature (wish / ask / browser), and a host adapter for Pi and for DeepSeek Harness.",
   "type": "module",
   "license": "MIT",
   "author": "akirousnow",
@@ -9,69 +10,27 @@
     "type": "git",
     "url": "git+https://github.com/akirousnow/pi-yee-stack.git"
   },
-  "bugs": {
-    "url": "https://github.com/akirousnow/pi-yee-stack/issues"
-  },
-  "homepage": "https://github.com/akirousnow/pi-yee-stack#readme",
-  "keywords": [
-    "pi-package",
-    "pi-extension",
-    "pi-coding-agent",
-    "prompt-engineering",
-    "ask-mode",
-    "browser-control",
-    "chrome-devtools-mcp",
-    "tui",
-    "coding-agent"
-  ],
-  "files": [
-    "extensions/",
-    "!extensions/**/*.test.ts",
-    "!extensions/**/test-support/",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE"
+  "workspaces": [
+    "packages/core",
+    "packages/features/wish",
+    "packages/features/ask",
+    "packages/features/browser",
+    "packages/pi",
+    "packages/dsh"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test:unit": "tsx extensions/yee-stack/config.test.ts && tsx extensions/yee-stack/shortcut.test.ts && tsx extensions/yee-stack/legacy.test.ts && tsx extensions/yee-stack/features/wish/prompt.test.ts && tsx extensions/yee-stack/features/ask/policy.test.ts && tsx extensions/yee-stack/features/ask/mode.test.ts && tsx extensions/yee-stack/features/browser/refs.test.ts && tsx extensions/yee-stack/features/browser/tabs.test.ts && tsx extensions/yee-stack/features/browser/snapshot.test.ts && tsx extensions/yee-stack/features/browser/args.test.ts && tsx extensions/yee-stack/features/browser/tools.test.ts && tsx extensions/yee-stack/features/browser/mode.test.ts && tsx extensions/yee-stack/features/browser/autocomplete.test.ts && tsx extensions/yee-stack/features/browser/tab.test.ts && tsx extensions/yee-stack/ui/config-page.test.ts",
-    "test": "npm run typecheck && npm run test:unit",
-    "test:e2e": "tsx extensions/yee-stack/features/browser/e2e.test.ts"
-  },
-  "pi": {
-    "extensions": [
-      "./extensions/yee-stack/index.ts"
-    ]
-  },
-  "peerDependencies": {
-    "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*"
-  },
-  "peerDependenciesMeta": {
-    "@earendil-works/pi-ai": {
-      "optional": true
-    },
-    "@earendil-works/pi-coding-agent": {
-      "optional": true
-    },
-    "@earendil-works/pi-tui": {
-      "optional": true
-    }
+    "build": "npm run build -w @yee-stack/core && npm run build -w @yee-stack/wish -w @yee-stack/ask -w @yee-stack/browser && npm run build -w @yee-stack/dsh --if-present",
+    "typecheck": "npm run build && npm run typecheck --workspaces --if-present",
+    "test": "npm run build && npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e -w pi-yee-stack --if-present",
+    "clean": "rm -rf packages/*/lib packages/features/*/lib"
   },
   "devDependencies": {
-    "@earendil-works/pi-ai": "^1.5.2",
-    "@earendil-works/pi-coding-agent": "^1.5.2",
-    "@earendil-works/pi-tui": "^1.5.2",
     "@types/node": "^25.7.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">=22.19.0"
-  },
-  "dependencies": {
-    "@earendil-works/pi-mcp": "~1.5.2",
-    "chrome-devtools-mcp": "~1.13.0"
   }
 }

@@ -1,0 +1,33 @@
+{
+  "name": "@yee-stack/browser",
+  "version": "0.5.0",
+  "description": "Browser control plumbing: $tN tab refs, list_pages parsing, snapshot diffs, chrome-devtools-mcp connection planning.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "src/"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "test": "tsx src/refs.test.ts && tsx src/tabs.test.ts && tsx src/snapshot.test.ts && tsx src/args.test.ts"
+  },
+  "dependencies": {
+    "@yee-stack/core": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  }
+}
